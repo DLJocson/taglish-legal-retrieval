@@ -116,13 +116,4 @@ See `frontend/README.md` for UI structure and development notes.
 
 ---
 
-## License & Project Status
-
-| Item | Details |
-|------|---------|
-| **License** | [MIT License](LICENSE) — Copyright (c) 2026 Dan Louie M. Jocson |
-| **Status** | Academic final project — *active development / submission pending* |
-
----
-
 *Final project in partial fulfillment of COSC 304 — Introduction to Artificial Intelligence, PUP CCIS, AY 2025–2026.*
