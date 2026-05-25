@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PH Legal AI Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+  <link rel="stylesheet" href="/assets/css/app.css" />
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sb-inner">
+      <div class="sb-brand">
+        <div class="sb-logo"><i class="ti ti-scale" aria-hidden="true"></i></div>
+        <div class="sb-brand-text">
+          <div class="sb-name">PH Legal AI</div>
+          <div class="sb-tagline">Legal Text Retrieval</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sb-section-label">Primary Model</div>
+        <select class="sb-select" id="sidebar-model" aria-label="Primary embedding model"></select>
+      </div>
+
+      <div>
+        <div class="topk-row">
+          <div class="sb-section-label" style="margin-bottom:0">Results per Query</div>
+          <span class="topk-badge" id="top-k-label">Top 5</span>
+        </div>
+        <input type="range" min="1" max="10" value="5" step="1" class="sb-range" id="top-k" aria-label="Number of results" />
+      </div>
+
+      <div class="sb-hint">
+        Dense vector search over Philippine legal corpora. Embeddings are pre-built and stored as FAISS indices.
+      </div>
+
+      <div class="sb-spacer"></div>
+      <div class="sb-divider"></div>
+
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button type="button" class="sb-nav-btn" id="btn-analytics">
+          <i class="ti ti-chart-bar" aria-hidden="true"></i>
+          Analytics Dashboard
+        </button>
+        <button type="button" class="sb-nav-btn" id="btn-export-sidebar">
+          <i class="ti ti-download" aria-hidden="true"></i>
+          Export Results
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main" id="main-wrap">
+    <div class="topbar" id="main-topbar">
+      <div class="topbar-title-row">
+        <span class="topbar-ph">PH</span>
+        <h1 class="topbar-title">Philippine Legal AI Search</h1>
+      </div>
+      <p class="topbar-sub">Dense retrieval over Philippine statutes, regulations, and jurisprudence</p>
+
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab-btn active" data-tab="search" role="tab" aria-selected="true">
+          <i class="ti ti-search" aria-hidden="true"></i> Search
+        </button>
+        <button type="button" class="tab-btn" data-tab="compare" role="tab" aria-selected="false">
+          <i class="ti ti-layout-columns" aria-hidden="true"></i> Compare Models
+        </button>
+        <button type="button" class="tab-btn" data-tab="filters" role="tab" aria-selected="false">
+          <i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> Advanced Filters
+        </button>
+      </nav>
+    </div>
+
+    <div class="pane active" data-panel="search" role="tabpanel">
+      <div class="search-row">
+        <div class="search-field-wrap">
+          <i class="ti ti-search search-icon-pos" aria-hidden="true"></i>
+          <input class="search-input" type="text" id="search-query"
+                 placeholder="Search Philippine legal texts…" />
+        </div>
+        <button type="button" class="search-btn" id="search-btn">
+          <i class="ti ti-arrow-right" aria-hidden="true"></i> Search
+        </button>
+      </div>
+
+      <div class="results-meta" id="search-meta" style="display:none">
+        <div class="results-label">
+          Top <strong id="meta-topk">5</strong> results for
+          <strong id="meta-query"></strong>
+        </div>
+        <div class="export-btns">
+          <button type="button" class="export-btn" id="export-csv-search">
+            <i class="ti ti-table-export" aria-hidden="true"></i> CSV
+          </button>
+          <button type="button" class="export-btn" id="export-json-search">
+            <i class="ti ti-braces" aria-hidden="true"></i> JSON
+          </button>
+        </div>
+      </div>
+
+      <div id="search-loading" class="loading-state">
+        <div class="spinner"></div>
+        <div class="loading-text">Encoding query and searching index…</div>
+      </div>
+
+      <div id="search-results"></div>
+
+      <div class="empty-state" id="search-empty">
+        <i class="ti ti-file-search" aria-hidden="true"></i>
+        <div class="empty-state-title">Enter a query to begin</div>
+        <div class="empty-state-sub">Search over Philippine legal corpora using dense semantic retrieval.</div>
+      </div>
+    </div>
+
+    <div class="pane" data-panel="compare" role="tabpanel">
+      <div class="compare-setup">
+        <p class="compare-setup-hint">Enter one query and see results from two models side-by-side.</p>
+
+        <div class="compare-model-row">
+          <div>
+            <label class="field-label" for="compare-model-a">Model A</label>
+            <select class="field-select" id="compare-model-a"></select>
+          </div>
+          <div class="vs-circle">VS</div>
+          <div>
+            <label class="field-label" for="compare-model-b">Model B</label>
+            <select class="field-select" id="compare-model-b"></select>
+          </div>
+        </div>
+
+        <div class="search-row" style="margin-bottom:0">
+          <div class="search-field-wrap">
+            <i class="ti ti-search search-icon-pos" aria-hidden="true"></i>
+            <input class="search-input" type="text" id="compare-query"
+                   placeholder="Enter query to compare…" />
+          </div>
+          <button type="button" class="search-btn" id="compare-btn">
+            <i class="ti ti-layout-columns" aria-hidden="true"></i> Compare
+          </button>
+        </div>
+      </div>
+
+      <div id="compare-export" class="export-btns" style="display:none;margin-bottom:.9rem">
+        <button type="button" class="export-btn" id="export-csv-compare">
+          <i class="ti ti-table-export" aria-hidden="true"></i> CSV
+        </button>
+        <button type="button" class="export-btn" id="export-json-compare">
+          <i class="ti ti-braces" aria-hidden="true"></i> JSON
+        </button>
+      </div>
+
+      <div class="compare-columns" id="compare-columns" style="display:none">
+        <div>
+          <div class="col-header">
+            <span class="col-badge col-badge-a">A</span>
+            <span class="col-title" id="col-title-a">Model A</span>
+          </div>
+          <p class="col-sub" id="col-sub-a"></p>
+          <div id="compare-results-a"></div>
+        </div>
+        <div>
+          <div class="col-header">
+            <span class="col-badge col-badge-b">B</span>
+            <span class="col-title" id="col-title-b">Model B</span>
+          </div>
+          <p class="col-sub" id="col-sub-b"></p>
+          <div id="compare-results-b"></div>
+        </div>
+      </div>
+
+      <div class="empty-state" id="compare-empty">
+        <i class="ti ti-layout-columns" aria-hidden="true"></i>
+        <div class="empty-state-title">Select two models and enter a query</div>
+        <div class="empty-state-sub">Compare retrieval quality side-by-side across different embedding models.</div>
+      </div>
+    </div>
+
+    <div class="pane" data-panel="filters" role="tabpanel">
+      <div class="filter-card">
+        <h3>Filter Search</h3>
+        <p class="filter-card-hint">Narrow results by language, document type, or date range before searching.</p>
+
+        <div class="filter-row">
+          <div>
+            <label class="field-label" for="filter-lang">Language</label>
+            <select class="field-select" id="filter-lang"></select>
+          </div>
+          <div>
+            <label class="field-label" for="filter-type">Document Type</label>
+            <select class="field-select" id="filter-type"></select>
+          </div>
+          <div>
+            <label class="field-label" for="filter-date-from">Date From</label>
+            <input class="search-input no-icon" style="height:36px" type="date" id="filter-date-from" />
+          </div>
+          <div>
+            <label class="field-label" for="filter-date-to">Date To</label>
+            <input class="search-input no-icon" style="height:36px" type="date" id="filter-date-to" />
+          </div>
+          <div>
+            <label class="field-label" for="filter-query">Query</label>
+            <input class="search-input no-icon" style="height:36px" type="text" id="filter-query"
+                   placeholder="Search with filters…" />
+          </div>
+        </div>
+
+        <p class="filter-meta" id="corpus-stats">
+          Filters: <span id="f-lang-disp">All</span> · <span id="f-doc-disp">All</span>
+          — run a search to query the full index with post-filtering.
+        </p>
+
+        <button type="button" class="filter-submit" id="filter-btn">
+          <i class="ti ti-filter" aria-hidden="true"></i> Search with Filters
+        </button>
+      </div>
+
+      <div id="filter-meta" class="results-label" style="display:none;margin-bottom:.9rem"></div>
+      <div id="filter-export" class="export-btns" style="display:none;margin-bottom:.9rem">
+        <button type="button" class="export-btn" id="export-csv-filter">
+          <i class="ti ti-table-export" aria-hidden="true"></i> CSV
+        </button>
+        <button type="button" class="export-btn" id="export-json-filter">
+          <i class="ti ti-braces" aria-hidden="true"></i> JSON
+        </button>
+      </div>
+      <div id="filter-results"></div>
+
+      <div class="empty-state" id="filter-empty">
+        <i class="ti ti-zoom-question" aria-hidden="true"></i>
+        <div class="empty-state-title">Set filters and enter a query</div>
+        <div class="empty-state-sub">Useful for isolating results by language, document type, or date range.</div>
+      </div>
+    </div>
+
+    <div class="pane" data-panel="analytics" role="tabpanel" id="pane-analytics">
+      <div class="analytics-wrap">
+        <button type="button" class="an-return" id="btn-close-analytics">
+          <i class="ti ti-arrow-left" aria-hidden="true"></i> Return to Search
+        </button>
+
+        <div class="an-header">
+          <div class="an-title-row">
+            <i class="ti ti-chart-bar an-icon" aria-hidden="true"></i>
+            <h2 class="an-title">Model Evaluation Analytics</h2>
+          </div>
+          <p class="an-sub">Comparative retrieval performance — mSBERT · BGE-M3 · Legal-BERT</p>
+        </div>
+
+        <div id="analytics-loading" class="loading-state visible analytics-loading">
+          <div class="spinner"></div>
+          <div class="loading-text">Loading evaluation metrics…</div>
+        </div>
+
+        <div id="analytics-error" class="an-error" style="display:none"></div>
+
+        <div id="analytics-content" style="display:none">
+          <div class="insights-card">
+            <div class="insights-label">
+              <i class="ti ti-key" style="font-size:13px" aria-hidden="true"></i> Key Insights
+            </div>
+            <div class="metrics-grid" id="insight-grid"></div>
+            <div class="overall-tile" id="overall-leader" style="display:none">
+              <div class="overall-label">Overall Leader</div>
+              <div class="overall-value" id="overall-leader-name">—</div>
+              <div class="overall-sub" id="overall-leader-sub"></div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:1.1rem">
+            <div class="an-section-title">
+              <span class="an-section-num">1</span> Global Performance Comparison
+            </div>
+            <div class="an-section-sub">Mean metric scores across the full evaluation set.</div>
+            <div class="charts-pair">
+              <div class="chart-card">
+                <div class="chart-title">Mean Reciprocal Rank (MRR)</div>
+                <div class="chart-bars" id="chart-mrr"></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-title">Precision @ 10 (P@10)</div>
+                <div class="chart-bars" id="chart-p10"></div>
+              </div>
+            </div>
+            <div class="charts-pair">
+              <div class="chart-card">
+                <div class="chart-title">Precision @ 5 (P@5)</div>
+                <div class="chart-bars" id="chart-p5"></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-title">Recall</div>
+                <div class="chart-bars" id="chart-recall"></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="an-section-title">
+              <span class="an-section-num">2</span> Per-Query Sample
+            </div>
+            <div class="an-section-sub">Sample rows from the evaluation dataset (up to 500).</div>
+            <div class="an-table-wrap">
+              <div class="an-table-scroll" id="table-raw"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="page-footer" id="page-footer">
+      Philippine Legal AI Search · Thesis Project · FastAPI, FAISS &amp; Sentence-Transformers
+    </footer>
+  </div>
+
+  <div id="toast" class="hidden toast-success" role="status"></div>
+
+  <div id="global-loading" class="modal-overlay" style="z-index:90" aria-hidden="true">
+    <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem 2rem;display:flex;flex-direction:column;align-items:center;gap:12px;box-shadow:var(--shadow-lg)">
+      <div class="spinner"></div>
+      <p class="loading-text">Working…</p>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-passage-id">
+      <div class="modal-head">
+        <span class="modal-id" id="modal-passage-id"></span>
+        <button type="button" class="modal-close" id="modal-close" aria-label="Close">
+          <i class="ti ti-x" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-meta" id="modal-meta"></div>
+      <div class="modal-body">
+        <div class="modal-doc-title" id="modal-doc-title"></div>
+        <p id="modal-text"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/js/core.js"></script>
+  <script src="/assets/js/analytics.js"></script>
+  <script src="/assets/js/search.js"></script>
+</body>
+</html>

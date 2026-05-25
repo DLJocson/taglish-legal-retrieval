@@ -1,5 +1,13 @@
+# Core pipeline (preprocessing, download)
 pandas
 datasets
 huggingface_hub
 langdetect
 python-dotenv
+
+# Web app + retrieval (api.py, frontend/, src/04a–06)
+fastapi
+uvicorn[standard]
+numpy
+faiss-cpu
+sentence-transformers

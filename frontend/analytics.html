@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analytics — PH Legal AI Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.11.0/dist/tabler-icons.min.css" />
+  <link rel="stylesheet" href="/assets/css/app.css" />
+  <style>
+    body { display: block; height: auto; min-height: 100vh; overflow: auto; }
+    .analytics-page { min-height: 100vh; background: var(--an-bg); }
+    .analytics-page-inner { max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.75rem 2.5rem; }
+    .analytics-page .analytics-wrap { margin: 0; padding: 0; }
+  </style>
+</head>
+<body class="analytics-page" id="analytics-standalone">
+
+  <div class="analytics-page-inner">
+    <a href="/" class="an-return" style="text-decoration:none;margin-bottom:1.25rem">
+      <i class="ti ti-arrow-left" aria-hidden="true"></i> Return to Search
+    </a>
+
+    <div class="analytics-wrap">
+      <div class="an-header">
+        <div class="an-title-row">
+          <i class="ti ti-chart-bar an-icon" aria-hidden="true"></i>
+          <h1 class="an-title">Model Evaluation Analytics</h1>
+        </div>
+        <p class="an-sub">Comparative retrieval performance — mSBERT · BGE-M3 · Legal-BERT</p>
+      </div>
+
+      <div id="analytics-loading" class="loading-state visible" style="color:var(--an-muted)">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading evaluation metrics…</div>
+      </div>
+
+      <div id="analytics-error" class="an-error" style="display:none"></div>
+
+      <div id="analytics-content" style="display:none">
+        <div class="insights-card">
+          <div class="insights-label">
+            <i class="ti ti-key" style="font-size:13px" aria-hidden="true"></i> Key Insights
+          </div>
+          <div class="metrics-grid" id="insight-grid"></div>
+          <div class="overall-tile" id="overall-leader" style="display:none">
+            <div class="overall-label">Overall Leader</div>
+            <div class="overall-value" id="overall-leader-name">—</div>
+            <div class="overall-sub" id="overall-leader-sub"></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:1.1rem">
+          <div class="an-section-title">
+            <span class="an-section-num">1</span> Global Performance Comparison
+          </div>
+          <div class="an-section-sub">Mean metric scores across the full evaluation set.</div>
+          <div class="charts-pair">
+            <div class="chart-card">
+              <div class="chart-title">Mean Reciprocal Rank (MRR)</div>
+              <div class="chart-bars" id="chart-mrr"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Precision @ 10 (P@10)</div>
+              <div class="chart-bars" id="chart-p10"></div>
+            </div>
+          </div>
+          <div class="charts-pair">
+            <div class="chart-card">
+              <div class="chart-title">Precision @ 5 (P@5)</div>
+              <div class="chart-bars" id="chart-p5"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Recall</div>
+              <div class="chart-bars" id="chart-recall"></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="an-section-title">
+            <span class="an-section-num">2</span> Per-Query Sample
+          </div>
+          <div class="an-section-sub">Sample rows from the evaluation dataset (up to 500).</div>
+          <div class="an-table-wrap">
+            <div class="an-table-scroll" id="table-raw"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer style="margin-top:2rem;text-align:center;font-size:11px;color:var(--an-muted)">
+      Philippine Legal AI Search · Analytics Dashboard · Thesis Project
+    </footer>
+  </div>
+
+  <script src="/assets/js/core.js"></script>
+  <script src="/assets/js/analytics.js"></script>
+</body>
+</html>
