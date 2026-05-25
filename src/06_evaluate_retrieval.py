@@ -8,7 +8,6 @@ import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-
 print("========================================")
 print(" STAGE 4: STRATIFIED RETRIEVAL EVALUATION ")
 print("========================================")
@@ -31,11 +30,11 @@ TOP_K = 10
 
 
 def parse_list_value(value):
-    """Safely parse a list-like string from CSV."""
+    """Safely parse a list-like value from CSV."""
     if pd.isna(value):
         return []
     if isinstance(value, list):
-        return value
+        return [str(v) for v in value if str(v).strip()]
     if isinstance(value, str):
         text = value.strip()
         if not text:
@@ -43,19 +42,36 @@ def parse_list_value(value):
         if text.startswith("[") and text.endswith("]"):
             try:
                 parsed = ast.literal_eval(text)
-                return parsed if isinstance(parsed, list) else []
+                if isinstance(parsed, list):
+                    return [str(v) for v in parsed if str(v).strip()]
             except Exception:
-                return []
+                try:
+                    parsed = json.loads(text.replace("'", '"'))
+                    if isinstance(parsed, list):
+                        return [str(v) for v in parsed if str(v).strip()]
+                except Exception:
+                    return []
     return []
+
+
+def unique_preserve_order(items):
+    seen = set()
+    out = []
+    for item in items:
+        item = str(item).strip()
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
 
 
 def load_id_lookup(mapping_path):
     """
-    Returns a function that maps a FAISS row index to a passage ID.
     Supports:
       1) list: [passage_id_0, passage_id_1, ...]
-      2) dict with int/string keys mapping index -> passage_id
-      3) dict with passage_id -> index (reversed automatically if needed)
+      2) dict index -> passage_id
+      3) dict passage_id -> index (reversed automatically)
     """
     with open(mapping_path, "r") as f:
         mapping = json.load(f)
@@ -65,37 +81,29 @@ def load_id_lookup(mapping_path):
             return str(mapping[i])
         return lookup
 
-    if isinstance(mapping, dict):
-        if len(mapping) > 0:
-            sample_key = next(iter(mapping.keys()))
-            sample_val = mapping[sample_key]
+    if isinstance(mapping, dict) and len(mapping) > 0:
+        sample_key = next(iter(mapping.keys()))
+        sample_val = mapping[sample_key]
 
-            if str(sample_key).isdigit():
-                idx_map = {int(k): v for k, v in mapping.items()}
+        if str(sample_key).isdigit():
+            idx_map = {int(k): v for k, v in mapping.items()}
+            def lookup(i):
+                return str(idx_map[i])
+            return lookup
 
-                def lookup(i):
-                    return str(idx_map[i])
+        if isinstance(sample_val, int) or (isinstance(sample_val, str) and str(sample_val).isdigit()):
+            reverse_map = {int(v): k for k, v in mapping.items()}
+            def lookup(i):
+                return str(reverse_map[i])
+            return lookup
 
-                return lookup
-
-            if isinstance(sample_val, int) or (isinstance(sample_val, str) and str(sample_val).isdigit()):
-                reverse_map = {int(v): k for k, v in mapping.items()}
-
-                def lookup(i):
-                    return str(reverse_map[i])
-
-                return lookup
-
-    raise ValueError(
-        "Unsupported id_mapping.json format. Expected a list or a dictionary "
-        "mapping FAISS row indices to passage IDs."
-    )
+    raise ValueError("Unsupported id_mapping.json format.")
 
 
 def precision_at_k(retrieved_ids, ground_truth_ids, k):
-    top_k = retrieved_ids[:k]
     if k <= 0:
         return 0.0
+    top_k = retrieved_ids[:k]
     relevant = sum(1 for doc_id in top_k if doc_id in ground_truth_ids)
     return relevant / float(k)
 
@@ -176,7 +184,7 @@ def main():
                 query_text = row["query_text"]
                 language = row["language_label"]
                 semantic_type = row["semantic_type"]
-                ground_truth_ids = row["relevant_passage_ids"]
+                ground_truth_ids = unique_preserve_order(row["relevant_passage_ids"])
 
                 query_vector = encoder.encode(
                     [query_text],
@@ -213,8 +221,8 @@ def main():
                     "P@5": p5,
                     "P@10": p10,
                     "Recall@10": recall10,
-                    "Retrieved_Ids": json.dumps(retrieved_ids),
-                    "Ground_Truth_Ids": json.dumps(ground_truth_ids),
+                    "Retrieved_Ids": json.dumps(retrieved_ids, ensure_ascii=False),
+                    "Ground_Truth_Ids": json.dumps(ground_truth_ids, ensure_ascii=False),
                 })
 
             print(f"Finished {model_alias.upper()}.")
@@ -227,6 +235,7 @@ def main():
 
     metrics_df = pd.DataFrame(all_query_metrics)
 
+    # Save query-level results
     metrics_df.to_csv(OUTPUT_CSV, index=False)
     print(f"\nDetailed query-level metrics saved to: {OUTPUT_CSV}")
 
@@ -248,6 +257,7 @@ def main():
     type_perf = metrics_df.groupby(["Model", "Semantic_Type"])[["MRR", "P@5", "P@10", "Recall@10"]].mean().round(4)
     print(type_perf)
 
+    # Save summary tables in long format
     summary_rows = []
 
     for model_name, group in metrics_df.groupby("Model"):
