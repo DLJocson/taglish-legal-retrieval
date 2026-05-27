@@ -142,9 +142,15 @@ def run_search_sync(
             continue
         if document_type and doc_type != document_type and doc_type != "—":
             continue
-        if date_filed and date_from and date_filed < date_from:
+
+        # Convert date_filed to string and normalize NaN/NaT values
+        date_filed_str: str | None = None
+        if date_filed and str(date_filed).lower() not in ("nan", "nat", "none", ""):
+            date_filed_str = str(date_filed)
+
+        if date_filed_str and date_from and date_filed_str < date_from:
             continue
-        if date_filed and date_to and date_filed > date_to:
+        if date_filed_str and date_to and date_filed_str > date_to:
             continue
 
         confidence = "HIGH" if score >= 0.65 else "MEDIUM" if score >= 0.50 else "LOW"
@@ -160,7 +166,7 @@ def run_search_sync(
                 "passage_text": str(text),
                 "language": str(lang),
                 "document_type": str(doc_type),
-                "date_filed": str(date_filed) if date_filed else None,
+                "date_filed": date_filed_str,
                 "source_url": source_url,
                 "model": model_key,
                 "query": query,
