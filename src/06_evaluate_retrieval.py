@@ -1,20 +1,19 @@
-import os
 import ast
 import json
+import os
 import warnings
 
 import faiss
-import pandas as pd
 import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
 from sentence_transformers import SentenceTransformer
 
 print("========================================")
 print(" STAGE 4: STRATIFIED RETRIEVAL EVALUATION ")
 print("========================================")
 
-# =========================
-# CONFIG
-# =========================
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 BASE_PATH = os.path.join(project_root, "data", "processed")
@@ -22,19 +21,22 @@ BASE_PATH = os.path.join(project_root, "data", "processed")
 QUERY_FILE = os.path.join(BASE_PATH, "queries_annotated.csv")
 ID_MAPPING_FILE = os.path.join(BASE_PATH, "indices", "id_mapping.json")
 INDICES_DIR = os.path.join(BASE_PATH, "indices")
-OUTPUT_CSV = os.path.join(BASE_PATH, "detailed_evaluation_metrics.csv")
-SUMMARY_CSV = os.path.join(BASE_PATH, "summary_evaluation_metrics.csv")
+
+RUN_MODE = "aligned"  # "baseline" or "aligned"
+
+OUTPUT_CSV = os.path.join(BASE_PATH, f"detailed_evaluation_metrics_{RUN_MODE}.csv")
+SUMMARY_CSV = os.path.join(BASE_PATH, f"summary_evaluation_metrics_{RUN_MODE}.csv")
 
 ALLOWED_LANGUAGES = {"English", "Tagalog", "Code-Switched"}
 TOP_K = 10
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def parse_list_value(value):
-    """Safely parse a list-like value from CSV."""
     if pd.isna(value):
         return []
     if isinstance(value, list):
-        return [str(v) for v in value if str(v).strip()]
+        return [str(v).strip() for v in value if str(v).strip()]
     if isinstance(value, str):
         text = value.strip()
         if not text:
@@ -43,12 +45,12 @@ def parse_list_value(value):
             try:
                 parsed = ast.literal_eval(text)
                 if isinstance(parsed, list):
-                    return [str(v) for v in parsed if str(v).strip()]
+                    return [str(v).strip() for v in parsed if str(v).strip()]
             except Exception:
                 try:
                     parsed = json.loads(text.replace("'", '"'))
                     if isinstance(parsed, list):
-                        return [str(v) for v in parsed if str(v).strip()]
+                        return [str(v).strip() for v in parsed if str(v).strip()]
                 except Exception:
                     return []
     return []
@@ -67,19 +69,11 @@ def unique_preserve_order(items):
 
 
 def load_id_lookup(mapping_path):
-    """
-    Supports:
-      1) list: [passage_id_0, passage_id_1, ...]
-      2) dict index -> passage_id
-      3) dict passage_id -> index (reversed automatically)
-    """
-    with open(mapping_path, "r") as f:
+    with open(mapping_path, "r", encoding="utf-8") as f:
         mapping = json.load(f)
 
     if isinstance(mapping, list):
-        def lookup(i):
-            return str(mapping[i])
-        return lookup
+        return lambda i: str(mapping[i])
 
     if isinstance(mapping, dict) and len(mapping) > 0:
         sample_key = next(iter(mapping.keys()))
@@ -87,15 +81,11 @@ def load_id_lookup(mapping_path):
 
         if str(sample_key).isdigit():
             idx_map = {int(k): v for k, v in mapping.items()}
-            def lookup(i):
-                return str(idx_map[i])
-            return lookup
+            return lambda i: str(idx_map[i])
 
         if isinstance(sample_val, int) or (isinstance(sample_val, str) and str(sample_val).isdigit()):
             reverse_map = {int(v): k for k, v in mapping.items()}
-            def lookup(i):
-                return str(reverse_map[i])
-            return lookup
+            return lambda i: str(reverse_map[i])
 
     raise ValueError("Unsupported id_mapping.json format.")
 
@@ -123,8 +113,51 @@ def recall_at_k(retrieved_ids, ground_truth_ids, k):
     return relevant / float(len(ground_truth_ids))
 
 
+class LinearAdapter(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.proj = nn.Linear(dim, dim, bias=True)
+        self.norm = nn.LayerNorm(dim)
+        self.act = nn.ReLU()
+
+    def forward(self, x):
+        return self.act(self.norm(self.proj(x)))
+
+
+def load_adapter(adapter_path, dim):
+    if not os.path.exists(adapter_path):
+        return None
+
+    checkpoint = torch.load(adapter_path, map_location=DEVICE)
+    state_dict = checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+
+    adapter = LinearAdapter(dim).to(DEVICE)
+    adapter.load_state_dict(state_dict, strict=True)
+    adapter.eval()
+    return adapter
+
+
+def encode_query(encoder, query_text, adapter=None):
+    query_vector = encoder.encode(
+        [query_text],
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+        show_progress_bar=False,
+    ).astype(np.float32)
+
+    if adapter is None:
+        return query_vector
+
+    with torch.no_grad():
+        q = torch.from_numpy(query_vector).to(DEVICE)
+        q = adapter(q)
+        q = nn.functional.normalize(q, p=2, dim=-1)
+        return q.cpu().numpy().astype(np.float32)
+
+
 def main():
     print(f"Using BASE_PATH: {BASE_PATH}")
+    print(f"RUN_MODE: {RUN_MODE}")
     print("Loading annotated queries...")
 
     queries_df = pd.read_csv(QUERY_FILE)
@@ -149,17 +182,25 @@ def main():
     out_of_scope_df = queries_df[~queries_df["language_label"].isin(ALLOWED_LANGUAGES)].copy()
     judged_in_scope_df = in_scope_df[in_scope_df["relevant_passage_ids"].map(len) > 0].copy()
 
+    # --- NEW: Enforce Test Split for Evaluation ---
+    if "split" in judged_in_scope_df.columns:
+        judged_in_scope_df = judged_in_scope_df[judged_in_scope_df["split"] == "test"].copy()
+        print("\n[SCIENTIFIC VALIDITY CHECK PASSED]: Evaluating strictly on unseen 'test' queries.")
+    else:
+        print("\n[CRITICAL WARNING]: No 'split' column found. Evaluating on ALL data (Data Leakage!).")
+    # ----------------------------------------------
+
     print(f"Total queries in file: {total_queries}")
     print(f"In-scope queries (English/Tagalog/Code-Switched): {len(in_scope_df)}")
     print(f"Out-of-scope queries excluded: {len(out_of_scope_df)}")
-    print(f"Judged in-scope queries used for evaluation: {len(judged_in_scope_df)}")
+    print(f"Unseen 'test' queries used for final evaluation: {len(judged_in_scope_df)}")
+
+    if len(judged_in_scope_df) == 0:
+        raise ValueError("No judged in-scope 'test' queries found. Cannot compute evaluation metrics.")
 
     if len(out_of_scope_df) > 0:
         print("\nExcluded out-of-scope queries:")
         print(out_of_scope_df[["query_id", "language_label", "semantic_type"]].to_string(index=False))
-
-    if len(judged_in_scope_df) == 0:
-        raise ValueError("No judged in-scope queries found. Cannot compute evaluation metrics.")
 
     id_lookup = load_id_lookup(ID_MAPPING_FILE)
 
@@ -176,8 +217,19 @@ def main():
 
         try:
             encoder = SentenceTransformer(model_path, device="cpu")
+
             index_path = os.path.join(INDICES_DIR, f"{model_alias}_index.faiss")
+            if not os.path.exists(index_path):
+                raise FileNotFoundError(f"Missing FAISS index: {index_path}")
             index = faiss.read_index(index_path)
+
+            adapter = None
+            if RUN_MODE == "aligned":
+                adapter_path = os.path.join(INDICES_DIR, f"{model_alias}_adapter.pt")
+                adapter = load_adapter(adapter_path, index.d)
+                if adapter is None:
+                    print(f"  Adapter not found for {model_alias.upper()}; skipping.")
+                    continue
 
             for _, row in judged_in_scope_df.iterrows():
                 query_id = row["query_id"]
@@ -186,14 +238,9 @@ def main():
                 semantic_type = row["semantic_type"]
                 ground_truth_ids = unique_preserve_order(row["relevant_passage_ids"])
 
-                query_vector = encoder.encode(
-                    [query_text],
-                    normalize_embeddings=True,
-                    convert_to_numpy=True,
-                    show_progress_bar=False,
-                ).astype(np.float32)
+                query_vector = encode_query(encoder, query_text, adapter=adapter)
 
-                distances, faiss_indices = index.search(query_vector, TOP_K)
+                _, faiss_indices = index.search(query_vector, TOP_K)
 
                 retrieved_ids = []
                 for faiss_id in faiss_indices[0]:
@@ -234,8 +281,6 @@ def main():
         raise RuntimeError("No evaluation metrics were computed. Check model loading and index files.")
 
     metrics_df = pd.DataFrame(all_query_metrics)
-
-    # Save query-level results
     metrics_df.to_csv(OUTPUT_CSV, index=False)
     print(f"\nDetailed query-level metrics saved to: {OUTPUT_CSV}")
 
@@ -257,7 +302,6 @@ def main():
     type_perf = metrics_df.groupby(["Model", "Semantic_Type"])[["MRR", "P@5", "P@10", "Recall@10"]].mean().round(4)
     print(type_perf)
 
-    # Save summary tables in long format
     summary_rows = []
 
     for model_name, group in metrics_df.groupby("Model"):
@@ -306,7 +350,7 @@ def main():
     print(f"Total queries in file: {total_queries}")
     print(f"In-scope queries: {len(in_scope_df)}")
     print(f"Out-of-scope queries excluded: {len(out_of_scope_df)}")
-    print(f"Judged in-scope queries evaluated: {len(judged_in_scope_df)}")
+    print(f"Judged in-scope 'test' queries evaluated: {len(judged_in_scope_df)}")
 
 
 if __name__ == "__main__":

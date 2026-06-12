@@ -28,6 +28,15 @@
       </div>
 
       <div>
+        <div class="sb-section-label">Neural Alignment Adapter</div>
+        <label class="linaw-toggle-wrap">
+          <input type="checkbox" id="linaw-toggle" class="linaw-toggle" />
+          <span class="linaw-toggle-slider"></span>
+          <span class="linaw-toggle-label">Enable Neural Alignment Adapter</span>
+        </label>
+      </div>
+
+      <div>
         <div class="topk-row">
           <div class="sb-section-label" style="margin-bottom:0">Results per Query</div>
           <span class="topk-badge" id="top-k-label">Top 5</span>
@@ -73,6 +82,7 @@
         <button type="button" class="tab-btn" data-tab="filters" role="tab" aria-selected="false">
           <i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> Advanced Filters
         </button>
+        <div class="tab-underline"></div>
       </nav>
     </div>
 
@@ -82,10 +92,18 @@
           <i class="ti ti-search search-icon-pos" aria-hidden="true"></i>
           <input class="search-input" type="text" id="search-query"
                  placeholder="Search Philippine legal texts…" />
+          <span class="linaw-badge" id="linaw-badge" style="display:none">
+            <i class="ti ti-bolt" aria-hidden="true"></i> Neural Alignment Adapter Active
+          </span>
         </div>
         <button type="button" class="search-btn" id="search-btn">
           <i class="ti ti-arrow-right" aria-hidden="true"></i> Search
         </button>
+      </div>
+
+      <div class="lang-display-row" id="lang-display-row" style="display:none">
+        <span class="lang-label">Detected Language:</span>
+        <span class="lang-tag" id="detected-lang">English</span>
       </div>
 
       <div class="results-meta" id="search-meta" style="display:none">
@@ -125,11 +143,21 @@
           <div>
             <label class="field-label" for="compare-model-a">Model A</label>
             <select class="field-select" id="compare-model-a"></select>
+            <label class="compare-toggle-wrap">
+              <input type="checkbox" id="compare-aligned-a" class="compare-toggle" />
+              <span class="compare-toggle-slider"></span>
+              <span class="compare-toggle-label">Neural Alignment Adapter</span>
+            </label>
           </div>
           <div class="vs-circle">VS</div>
           <div>
             <label class="field-label" for="compare-model-b">Model B</label>
             <select class="field-select" id="compare-model-b"></select>
+            <label class="compare-toggle-wrap">
+              <input type="checkbox" id="compare-aligned-b" class="compare-toggle" />
+              <span class="compare-toggle-slider"></span>
+              <span class="compare-toggle-label">Neural Alignment Adapter</span>
+            </label>
           </div>
         </div>
 
@@ -237,80 +265,6 @@
       </div>
     </div>
 
-    <div class="pane" data-panel="analytics" role="tabpanel" id="pane-analytics">
-      <div class="analytics-wrap">
-        <button type="button" class="an-return" id="btn-close-analytics">
-          <i class="ti ti-arrow-left" aria-hidden="true"></i> Return to Search
-        </button>
-
-        <div class="an-header">
-          <div class="an-title-row">
-            <i class="ti ti-chart-bar an-icon" aria-hidden="true"></i>
-            <h2 class="an-title">Model Evaluation Analytics</h2>
-          </div>
-          <p class="an-sub">Comparative retrieval performance — mSBERT · BGE-M3 · Legal-BERT</p>
-        </div>
-
-        <div id="analytics-loading" class="loading-state visible analytics-loading">
-          <div class="spinner"></div>
-          <div class="loading-text">Loading evaluation metrics…</div>
-        </div>
-
-        <div id="analytics-error" class="an-error" style="display:none"></div>
-
-        <div id="analytics-content" style="display:none">
-          <div class="insights-card">
-            <div class="insights-label">
-              <i class="ti ti-key" style="font-size:13px" aria-hidden="true"></i> Key Insights
-            </div>
-            <div class="metrics-grid" id="insight-grid"></div>
-            <div class="overall-tile" id="overall-leader" style="display:none">
-              <div class="overall-label">Overall Leader</div>
-              <div class="overall-value" id="overall-leader-name">—</div>
-              <div class="overall-sub" id="overall-leader-sub"></div>
-            </div>
-          </div>
-
-          <div style="margin-bottom:1.1rem">
-            <div class="an-section-title">
-              <span class="an-section-num">1</span> Global Performance Comparison
-            </div>
-            <div class="an-section-sub">Mean metric scores across the full evaluation set.</div>
-            <div class="charts-pair">
-              <div class="chart-card">
-                <div class="chart-title">Mean Reciprocal Rank (MRR)</div>
-                <div class="chart-bars" id="chart-mrr"></div>
-              </div>
-              <div class="chart-card">
-                <div class="chart-title">Precision @ 10 (P@10)</div>
-                <div class="chart-bars" id="chart-p10"></div>
-              </div>
-            </div>
-            <div class="charts-pair">
-              <div class="chart-card">
-                <div class="chart-title">Precision @ 5 (P@5)</div>
-                <div class="chart-bars" id="chart-p5"></div>
-              </div>
-              <div class="chart-card">
-                <div class="chart-title">Recall</div>
-                <div class="chart-bars" id="chart-recall"></div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div class="an-section-title">
-              <span class="an-section-num">2</span> Per-Query Sample
-            </div>
-            <div class="an-section-sub">Sample rows from the evaluation dataset (up to 500).</div>
-            <div class="an-table-wrap">
-              <div class="an-table-scroll" id="table-raw"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <footer class="page-footer" id="page-footer">
       Philippine Legal AI Search · Thesis Project · FastAPI, FAISS &amp; Sentence-Transformers
     </footer>
@@ -342,7 +296,6 @@
   </div>
 
   <script src="/assets/js/core.js"></script>
-  <script src="/assets/js/analytics.js"></script>
   <script src="/assets/js/search.js"></script>
 </body>
 </html>

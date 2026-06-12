@@ -30,6 +30,24 @@
           <h1 class="an-title">Model Evaluation Analytics</h1>
         </div>
         <p class="an-sub">Comparative retrieval performance — mSBERT · BGE-M3 · Legal-BERT</p>
+        <div class="an-toggle-row">
+          <span class="an-toggle-label">View:</span>
+          <label class="an-toggle">
+            <input type="radio" name="view-mode" value="aligned" checked>
+            <span>Aligned (with LINAW)</span>
+          </label>
+          <label class="an-toggle">
+            <input type="radio" name="view-mode" value="baseline">
+            <span>Baseline (without LINAW)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="an-nav-sticky">
+        <a href="#section-1" class="an-nav-link">Global</a>
+        <a href="#section-2" class="an-nav-link">Language</a>
+        <a href="#section-3" class="an-nav-link">Semantic</a>
+        <a href="#section-4" class="an-nav-link">Per-Query</a>
       </div>
 
       <div id="analytics-loading" class="loading-state visible" style="color:var(--an-muted)">
@@ -40,19 +58,21 @@
       <div id="analytics-error" class="an-error" style="display:none"></div>
 
       <div id="analytics-content" style="display:none">
-        <div class="insights-card">
-          <div class="insights-label">
-            <i class="ti ti-key" style="font-size:13px" aria-hidden="true"></i> Key Insights
-          </div>
-          <div class="metrics-grid" id="insight-grid"></div>
-          <div class="overall-tile" id="overall-leader" style="display:none">
-            <div class="overall-label">Overall Leader</div>
-            <div class="overall-value" id="overall-leader-name">—</div>
-            <div class="overall-sub" id="overall-leader-sub"></div>
+        <div class="an-section">
+          <div class="insights-card">
+            <div class="insights-label">
+              <i class="ti ti-key" style="font-size:13px" aria-hidden="true"></i> Key Insights
+            </div>
+            <div class="metrics-grid" id="insight-grid"></div>
+            <div class="overall-tile" id="overall-leader" style="display:none">
+              <div class="overall-label">Overall Leader</div>
+              <div class="overall-value" id="overall-leader-name">—</div>
+              <div class="overall-sub" id="overall-leader-sub"></div>
+            </div>
           </div>
         </div>
 
-        <div style="margin-bottom:1.1rem">
+        <div class="an-section" id="section-1" style="margin-bottom:1.1rem">
           <div class="an-section-title">
             <span class="an-section-num">1</span> Global Performance Comparison
           </div>
@@ -79,9 +99,81 @@
           </div>
         </div>
 
-        <div>
+        <div class="an-section" id="section-2" style="margin-bottom:1.1rem">
           <div class="an-section-title">
-            <span class="an-section-num">2</span> Per-Query Sample
+            <span class="an-section-num">2</span> Language-Specific Performance
+          </div>
+          <div class="an-section-sub">Performance breakdown by language category (Code-Switched, English, Tagalog).</div>
+
+          <div style="margin-bottom: 0.75rem;">
+            <div class="lang-badge lang-badge-codeswitched">
+              <i class="ti ti-language"></i> Code-Switched (Taglish)
+            </div>
+            <div class="charts-pair">
+              <div class="chart-card">
+                <div class="chart-title">Code-Switched MRR</div>
+                <div class="chart-bars" id="chart-codeswitched-mrr"></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-title">Code-Switched P@10</div>
+                <div class="chart-bars" id="chart-codeswitched-p10"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 0.75rem;">
+            <div class="lang-badge lang-badge-english">
+              <i class="ti ti-language"></i> English
+            </div>
+            <div class="charts-pair">
+              <div class="chart-card">
+                <div class="chart-title">English MRR</div>
+                <div class="chart-bars" id="chart-english-mrr"></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-title">English P@10</div>
+                <div class="chart-bars" id="chart-english-p10"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 0.75rem;">
+            <div class="lang-badge lang-badge-tagalog">
+              <i class="ti ti-language"></i> Tagalog
+            </div>
+            <div class="charts-pair">
+              <div class="chart-card">
+                <div class="chart-title">Tagalog MRR</div>
+                <div class="chart-bars" id="chart-tagalog-mrr"></div>
+              </div>
+              <div class="chart-card">
+                <div class="chart-title">Tagalog P@10</div>
+                <div class="chart-bars" id="chart-tagalog-p10"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="an-section" id="section-3" style="margin-bottom:1.1rem">
+          <div class="an-section-title">
+            <span class="an-section-num">3</span> Semantic Type Performance
+          </div>
+          <div class="an-section-sub">Retrieval performance by query semantic type (Case-Law, Definitional, Procedural).</div>
+          <div class="charts-pair">
+            <div class="chart-card">
+              <div class="chart-title">Semantic Type MRR</div>
+              <div class="chart-bars" id="chart-semantic-mrr"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Semantic Type P@10</div>
+              <div class="chart-bars" id="chart-semantic-p10"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="an-section" id="section-4" style="margin-bottom:1.1rem">
+          <div class="an-section-title">
+            <span class="an-section-num">4</span> Per-Query Sample
           </div>
           <div class="an-section-sub">Sample rows from the evaluation dataset (up to 500).</div>
           <div class="an-table-wrap">

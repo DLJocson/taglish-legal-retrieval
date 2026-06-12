@@ -11,6 +11,7 @@ class SearchQuery(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     model: str = Field(default=DEFAULT_MODEL)
     top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=10)
+    is_aligned: bool = Field(default=False)
     language: str | None = None
     document_type: str | None = None
     date_from: str | None = None
@@ -36,6 +37,8 @@ class CompareQuery(BaseModel):
     query: str = Field(..., min_length=1, max_length=2000)
     model_a: str = Field(default="BGE-M3")
     model_b: str = Field(default="mSBERT")
+    is_aligned_a: bool = Field(default=False)
+    is_aligned_b: bool = Field(default=False)
     top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=10)
 
     @field_validator("query")
@@ -59,11 +62,15 @@ class SearchResponse(BaseModel):
     query: str
     model: str
     count: int
+    detected_language: str
 
 
 class CompareResponse(BaseModel):
     query: str
     model_a: str
     model_b: str
+    is_aligned_a: bool
+    is_aligned_b: bool
+    detected_language: str
     results_a: list[dict[str, Any]]
     results_b: list[dict[str, Any]]

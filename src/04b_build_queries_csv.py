@@ -78,8 +78,19 @@ for index, query in enumerate(raw_queries):
     })
 
 df = pd.DataFrame(formatted_data)
+
+# --- Stratified Train/Test Split ---
+# This ensures 80% of queries go to training, 20% to testing, 
+# balanced evenly across English, Tagalog, and Code-Switched.
+test_df = df.groupby('language_label', group_keys=False).apply(lambda x: x.sample(frac=0.2, random_state=42))
+df['split'] = 'train'
+df.loc[test_df.index, 'split'] = 'test'
+# ----------------------------------------
+
 output_path = "data/processed/queries.csv"
+os.makedirs(os.path.dirname(output_path), exist_ok=True)
 df.to_csv(output_path, index=False)
 
 print(f"\nSuccess! Structured CSV saved to {output_path}")
-print(df.head())
+print("\nSplit Distribution:")
+print(pd.crosstab(df['language_label'], df['split']))

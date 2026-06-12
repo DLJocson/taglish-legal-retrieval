@@ -9,6 +9,7 @@ from typing import Any
 import faiss
 import numpy as np
 import pandas as pd
+from langdetect import detect_langs
 from sentence_transformers import SentenceTransformer
 
 from backend.config import INDICES_DIR, MASTER_CORPUS_CSV, MODEL_CONFIG, PASSAGES_CSV
@@ -29,6 +30,29 @@ state = AppState()
 state.faiss_indices = {}
 state.models = {}
 state.doc_metadata_by_url = {}
+state.adapters = {}
+
+
+def identify_language(text: str) -> str:
+    """Detect query language using dual-threshold heuristic for code-switching.
+
+    Args:
+        text: Raw query string.
+
+    Returns:
+        "Code-Switched", "Tagalog", "English", or "Other"; defaults to "English".
+    """
+    try:
+        predictions = detect_langs(text)
+        res = {l.lang: l.prob for l in predictions}
+
+        if 'en' in res and 'tl' in res and min(res['en'], res['tl']) > 0.20:
+            return "Code-Switched"
+
+        dominant = predictions[0].lang
+        return "Tagalog" if dominant == 'tl' else "English" if dominant == 'en' else "Other"
+    except:
+        return "English"
 
 
 def cell_str(value: Any) -> str | None:
@@ -78,6 +102,53 @@ def load_model(hf_name: str) -> SentenceTransformer:
     return SentenceTransformer(hf_name)
 
 
+import torch
+import torch.nn as nn
+
+
+class LinearAdapter(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.proj = nn.Linear(dim, dim, bias=True)
+        self.norm = nn.LayerNorm(dim)
+        self.act = nn.ReLU()
+
+    def forward(self, x):
+        return self.act(self.norm(self.proj(x)))
+
+
+def load_adapter(adapter_path: str, dim: int):
+    if not os.path.exists(adapter_path):
+        return None
+
+    checkpoint = torch.load(adapter_path, map_location="cpu")
+    state_dict = checkpoint.get("state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
+
+    adapter = LinearAdapter(dim)
+    adapter.load_state_dict(state_dict, strict=True)
+    adapter.eval()
+    return adapter
+
+
+def encode_query(encoder, query_text, adapter=None):
+    query_vector = encoder.encode(
+        [query_text],
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+        show_progress_bar=False,
+    ).astype(np.float32)
+
+    if adapter is None:
+        return query_vector
+
+    with torch.no_grad():
+        q = torch.from_numpy(query_vector)
+        q = adapter(q)
+        # L2 normalization immediately after adapter layer for IndexFlatIP compatibility
+        q = nn.functional.normalize(q, p=2, dim=-1)
+        return q.cpu().numpy().astype(np.float32)
+
+
 def faiss_idx_to_passage_id(faiss_idx: int, id_mapping: list[str]) -> str:
     if 0 <= faiss_idx < len(id_mapping):
         return str(id_mapping[faiss_idx])
@@ -89,11 +160,12 @@ def run_search_sync(
     model_key: str,
     passages_df: pd.DataFrame,
     top_k: int,
+    is_aligned: bool = False,
     language: str | None = None,
     document_type: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], str]:
     if model_key not in MODEL_CONFIG:
         raise ValueError(f"Unknown model: {model_key}")
 
@@ -105,8 +177,20 @@ def run_search_sync(
     index = state.faiss_indices[model_key]
     id_mapping = state.id_mapping
 
-    vec = model.encode([query.strip()], normalize_embeddings=True)
-    vec = np.array(vec).astype("float32")
+    # Load adapter if needed
+    adapter = None
+    if is_aligned:
+        if model_key not in state.adapters:
+            adapter_path = cfg.get("adapter_file")
+            if adapter_path:
+                state.adapters[model_key] = load_adapter(adapter_path, index.d)
+        adapter = state.adapters.get(model_key)
+
+    # Detect query language
+    detected_language = identify_language(query.strip())
+
+    # Encode query with optional adapter
+    vec = encode_query(model, query.strip(), adapter=adapter)
     distances, indices_result = index.search(vec, top_k * 3)
 
     results: list[dict[str, Any]] = []
@@ -177,7 +261,7 @@ def run_search_sync(
         if len(results) >= top_k:
             break
 
-    return results
+    return results, detected_language
 
 
 def load_citation_metadata() -> dict[str, dict[str, str | None]]:

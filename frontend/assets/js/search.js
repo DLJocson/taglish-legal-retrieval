@@ -7,9 +7,11 @@ const { $, escapeHtml, truncate, showToast, apiGet, apiPost, downloadBlob, score
 let models = [];
 let filters = { languages: ["All"], document_types: ["All"], date_from: null, date_to: null };
 let passageCache = new Map();
-let previousTab = "search";
 let currentTab = "search";
 let lastExportResults = [];
+let linawEnabled = false;
+let linawEnabledA = false;
+let linawEnabledB = false;
 
 const STOP_WORDS = new Set([
   "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
@@ -115,6 +117,9 @@ function renderResultsList(containerId, results, query, compact = false) {
   }
 
   container.innerHTML = results.map((r) => renderResultCard(r, query, compact)).join("");
+  container.querySelectorAll(".result-card").forEach((card, index) => {
+    card.style.animationDelay = `${index * 0.06}s`;
+  });
   container.querySelectorAll(".read-btn").forEach((btn) => {
     btn.addEventListener("click", () => openPassageModal(btn.dataset.passageId));
   });
@@ -180,27 +185,23 @@ function switchTab(tab) {
   document.querySelectorAll(".pane[data-panel]").forEach((pane) => {
     if (pane.dataset.panel === "analytics") return;
     pane.classList.toggle("active", pane.dataset.panel === tab);
+    if (pane.dataset.panel === tab) {
+      pane.classList.remove("pane-entering");
+      void pane.offsetWidth; // force reflow to restart animation
+      pane.classList.add("pane-entering");
+    }
   });
+  updateTabUnderline();
 }
 
-function openAnalytics() {
-  previousTab = currentTab;
-  document.querySelectorAll(".pane[data-panel]").forEach((p) => {
-    if (p.dataset.panel !== "analytics") p.classList.remove("active");
-  });
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-  $("main-topbar") && ($("main-topbar").style.display = "none");
-  $("page-footer") && ($("page-footer").style.display = "none");
-  $("pane-analytics")?.classList.add("active");
-  LegalTechAnalytics.showInlinePane();
+function updateTabUnderline() {
+  const activeTab = document.querySelector(".tab-btn.active");
+  const underline = document.querySelector(".tab-underline");
+  if (!activeTab || !underline) return;
+  underline.style.left = activeTab.offsetLeft + "px";
+  underline.style.width = activeTab.offsetWidth + "px";
 }
 
-function closeAnalytics() {
-  $("pane-analytics")?.classList.remove("active");
-  $("main-topbar") && ($("main-topbar").style.display = "");
-  $("page-footer") && ($("page-footer").style.display = "");
-  switchTab(previousTab);
-}
 
 function openPassageModal(passageId) {
   const p = passageCache.get(passageId);
@@ -242,6 +243,7 @@ async function handleSearch() {
 
   const model = $("sidebar-model")?.value || "BGE-M3";
   const top_k = parseInt($("top-k")?.value || "5", 10);
+  const is_aligned = linawEnabled;
 
   $("search-empty") && ($("search-empty").style.display = "none");
   $("search-meta") && ($("search-meta").style.display = "none");
@@ -250,7 +252,7 @@ async function handleSearch() {
 
   const t0 = performance.now();
   try {
-    const data = await apiPost("/api/search", { query, model, top_k });
+    const data = await apiPost("/api/search", { query, model, top_k, is_aligned });
     const ms = Math.round(performance.now() - t0);
 
     data.results.forEach((r) => {
@@ -264,6 +266,19 @@ async function handleSearch() {
     $("meta-topk").textContent = String(data.count);
     $("search-meta").style.display = "flex";
 
+    // Display detected language
+    const langDisplay = $("lang-display-row");
+    const langTag = $("detected-lang");
+    if (langDisplay && langTag && data.detected_language) {
+      langTag.textContent = data.detected_language;
+      langTag.className = "lang-tag";
+      if (data.detected_language === "English") langTag.classList.add("lang-tag-english");
+      else if (data.detected_language === "Tagalog") langTag.classList.add("lang-tag-tagalog");
+      else if (data.detected_language === "Code-Switched") langTag.classList.add("lang-tag-codeswitched");
+      else langTag.classList.add("lang-tag-other");
+      langDisplay.style.display = "flex";
+    }
+
     renderResultsList("search-results", data.results, data.query);
     if ($("search-empty")) {
       $("search-empty").style.display = data.results.length ? "none" : "flex";
@@ -271,7 +286,8 @@ async function handleSearch() {
     if ($("search-meta")) {
       $("search-meta").style.display = data.results.length ? "flex" : "none";
     }
-    showToast(`Found ${data.count} passages with ${model} (${ms} ms)`);
+    const adapterStatus = is_aligned ? " (Neural Alignment Adapter Active)" : "";
+    showToast(`Found ${data.count} passages with ${model}${adapterStatus} (${ms} ms)`);
   } catch (e) {
     showToast(e.message, "error");
     renderResultsList("search-results", [], query);
@@ -289,10 +305,13 @@ async function handleCompare() {
 
   const model_a = $("compare-model-a")?.value;
   const model_b = $("compare-model-b")?.value;
+  const is_aligned_a = linawEnabledA;
+  const is_aligned_b = linawEnabledB;
   const top_k = parseInt($("top-k")?.value || "5", 10);
 
-  if (model_a === model_b) {
-    showToast("Select two different models for comparison.", "error");
+  // Validation: error only if both model and adapter state are identical
+  if (model_a === model_b && is_aligned_a === is_aligned_b) {
+    showToast("Select different models or different adapter states for comparison.", "error");
     return;
   }
 
@@ -301,7 +320,7 @@ async function handleCompare() {
   setLoading(true);
 
   try {
-    const data = await apiPost("/api/compare", { query, model_a, model_b, top_k });
+    const data = await apiPost("/api/compare", { query, model_a, model_b, is_aligned_a, is_aligned_b, top_k });
 
     data.results_a.forEach((r) => {
       r.query = data.query;
@@ -310,13 +329,18 @@ async function handleCompare() {
       r.query = data.query;
     });
 
-    $("col-title-a").textContent = `Model A — ${data.model_a}`;
-    $("col-title-b").textContent = `Model B — ${data.model_b}`;
+    const adapterLabelA = is_aligned_a ? " (Neural Alignment Adapter Active)" : " (Zero-Shot)";
+    const adapterLabelB = is_aligned_b ? " (Neural Alignment Adapter Active)" : " (Zero-Shot)";
+    $("col-title-a").textContent = `Model A — ${data.model_a}${adapterLabelA}`;
+    $("col-title-b").textContent = `Model B — ${data.model_b}${adapterLabelB}`;
     $("col-sub-a").textContent = `Top ${top_k} results for "${data.query}"`;
     $("col-sub-b").textContent = `Top ${top_k} results for "${data.query}"`;
 
     renderResultsList("compare-results-a", data.results_a, data.query, true);
     renderResultsList("compare-results-b", data.results_b, data.query, true);
+
+    // Apply conditional formatting for improved rankings
+    applyCompareHighlighting(data.results_a, data.results_b, is_aligned_a, is_aligned_b);
 
     $("compare-columns").style.display = "grid";
     $("compare-export") && ($("compare-export").style.display = "flex");
@@ -328,6 +352,38 @@ async function handleCompare() {
   } finally {
     setLoading(false);
   }
+}
+
+function applyCompareHighlighting(resultsA, resultsB, isAlignedA, isAlignedB) {
+  // Only highlight if one column is aligned and the other is not
+  if (isAlignedA === isAlignedB) return;
+
+  const alignedResults = isAlignedA ? resultsA : resultsB;
+  const baselineResults = isAlignedA ? resultsB : resultsA;
+  const alignedContainerId = isAlignedA ? "compare-results-a" : "compare-results-b";
+
+  // Create a map of passage_id to rank in baseline
+  const baselineRankMap = new Map();
+  baselineResults.forEach((r) => {
+    baselineRankMap.set(r.passage_id, r.rank);
+  });
+
+  // Highlight passages that improved in the aligned column
+  const container = $(alignedContainerId);
+  if (!container) return;
+
+  container.querySelectorAll(".result-card").forEach((card) => {
+    const passageId = card.querySelector(".tag-id")?.textContent;
+    if (!passageId) return;
+
+    const baselineRank = baselineRankMap.get(passageId);
+    const currentRank = parseInt(card.querySelector(".rank-badge")?.textContent || "0", 10);
+
+    // If passage exists in both and rank improved in aligned column
+    if (baselineRank && currentRank < baselineRank) {
+      card.classList.add("rank-improved");
+    }
+  });
 }
 
 async function handleFilteredSearch() {
@@ -400,9 +456,27 @@ function initTabs() {
 
 async function initSearchPage() {
   initTabs();
+  updateTabUnderline();
   updateTopKSlider($("top-k")?.value || "5");
 
   $("top-k")?.addEventListener("input", (e) => updateTopKSlider(e.target.value));
+
+  // LINAW toggle event listeners
+  $("linaw-toggle")?.addEventListener("change", (e) => {
+    linawEnabled = e.target.checked;
+    const badge = $("linaw-badge");
+    if (badge) {
+      badge.style.display = linawEnabled ? "flex" : "none";
+    }
+  });
+
+  $("compare-aligned-a")?.addEventListener("change", (e) => {
+    linawEnabledA = e.target.checked;
+  });
+
+  $("compare-aligned-b")?.addEventListener("change", (e) => {
+    linawEnabledB = e.target.checked;
+  });
 
   try {
     const [modelsRes, filtersRes] = await Promise.all([
@@ -498,8 +572,9 @@ async function initSearchPage() {
     exportResults(data, "json", "export");
   });
 
-  $("btn-analytics")?.addEventListener("click", openAnalytics);
-  $("btn-close-analytics")?.addEventListener("click", closeAnalytics);
+  $("btn-analytics")?.addEventListener("click", () => {
+    window.location.href = "/analytics";
+  });
 
   $("modal-close")?.addEventListener("click", () => closePassageModal());
   $("modal-overlay")?.addEventListener("click", (e) => closePassageModal(e));
@@ -508,10 +583,6 @@ async function initSearchPage() {
   });
 
   updateCorpusStats();
-
-  if (window.location.hash === "#analytics") {
-    openAnalytics();
-  }
 }
 
 document.addEventListener("DOMContentLoaded", initSearchPage);

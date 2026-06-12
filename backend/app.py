@@ -18,6 +18,9 @@ from backend.config import (
     FRONTEND_ASSETS,
     FRONTEND_DIR,
     METRICS_CSV,
+    METRICS_DETAILED_ALIGNED_CSV,
+    METRICS_BASELINE_CSV,
+    METRICS_ALIGNED_CSV,
     MODEL_CONFIG,
 )
 from backend.retrieval import (
@@ -151,12 +154,13 @@ def create_app() -> FastAPI:
 
     @application.post("/api/search", response_model=SearchResponse)
     async def search(body: SearchQuery):
-        results = await asyncio.to_thread(
+        results, detected_language = await asyncio.to_thread(
             run_search_sync,
             body.query,
             body.model,
             state.passages_df,
             body.top_k,
+            body.is_aligned,
             body.language if body.language != "All" else None,
             body.document_type if body.document_type != "All" else None,
             body.date_from,
@@ -167,59 +171,67 @@ def create_app() -> FastAPI:
             query=body.query,
             model=body.model,
             count=len(results),
+            detected_language=detected_language,
         )
 
     @application.post("/api/compare", response_model=CompareResponse)
     async def compare(body: CompareQuery):
-        if body.model_a == body.model_b:
+        # Error only if both model and adapter state are identical
+        if body.model_a == body.model_b and body.is_aligned_a == body.is_aligned_b:
             raise HTTPException(
                 status_code=400,
-                detail="Select two different models for a meaningful comparison.",
+                detail="Select different models or different adapter states for comparison.",
             )
 
-        results_a, results_b = await asyncio.gather(
-            asyncio.to_thread(
-                run_search_sync,
-                body.query,
-                body.model_a,
-                state.passages_df,
-                body.top_k,
-            ),
-            asyncio.to_thread(
-                run_search_sync,
-                body.query,
-                body.model_b,
-                state.passages_df,
-                body.top_k,
-            ),
+        results_a, detected_lang_a = await asyncio.to_thread(
+            run_search_sync,
+            body.query,
+            body.model_a,
+            state.passages_df,
+            body.top_k,
+            body.is_aligned_a,
+        )
+        results_b, detected_lang_b = await asyncio.to_thread(
+            run_search_sync,
+            body.query,
+            body.model_b,
+            state.passages_df,
+            body.top_k,
+            body.is_aligned_b,
         )
 
         return CompareResponse(
             query=body.query,
             model_a=body.model_a,
             model_b=body.model_b,
+            is_aligned_a=body.is_aligned_a,
+            is_aligned_b=body.is_aligned_b,
+            detected_language=detected_lang_a,  # Both should be the same for the same query
             results_a=results_a,
             results_b=results_b,
         )
 
     @application.get("/api/analytics/metrics")
     async def analytics_metrics():
-        if not METRICS_CSV.exists():
+        if not METRICS_BASELINE_CSV.exists() or not METRICS_ALIGNED_CSV.exists():
             raise HTTPException(
                 status_code=404,
                 detail=(
                     "Evaluation data not found. Run 06_evaluate_retrieval.py to generate "
-                    "data/processed/detailed_evaluation_metrics.csv"
+                    "summary_evaluation_metrics_baseline.csv and summary_evaluation_metrics_aligned.csv"
                 ),
             )
 
-        df = pd.read_csv(METRICS_CSV)
-        df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
+        df_baseline = pd.read_csv(METRICS_BASELINE_CSV)
+        df_aligned = pd.read_csv(METRICS_ALIGNED_CSV)
 
-        all_cols = df.columns.tolist()
+        df_baseline.columns = [c.strip().lower().replace(" ", "_") for c in df_baseline.columns]
+        df_aligned.columns = [c.strip().lower().replace(" ", "_") for c in df_aligned.columns]
+
+        all_cols = df_baseline.columns.tolist()
         model_col = next((c for c in all_cols if "model" in c), None)
-        lang_col = next((c for c in all_cols if "lang" in c), None)
-        sem_col = next((c for c in all_cols if "semantic" in c or "type" in c), None)
+        # Prefer "category" over "scope" for filtering
+        category_col = next((c for c in all_cols if "category" in c), None) or next((c for c in all_cols if "scope" in c), None)
         mrr_col = next((c for c in all_cols if "mrr" in c), None)
         p5_col = next((c for c in all_cols if "p@5" in c or "p5" in c), None)
         p10_col = next(
@@ -228,11 +240,15 @@ def create_app() -> FastAPI:
         )
         recall_col = next((c for c in all_cols if "recall" in c), None)
 
+        # Normalize category values to match filtering logic
+        if category_col:
+            df_baseline[category_col] = df_baseline[category_col].str.lower().str.replace("-", "_")
+            df_aligned[category_col] = df_aligned[category_col].str.lower().str.replace("-", "_")
+
         if not model_col:
             raise HTTPException(status_code=500, detail="CSV missing a model column")
 
-        agg_cols = {c: "mean" for c in [mrr_col, p5_col, p10_col, recall_col] if c}
-        global_df = df.groupby(model_col).agg(agg_cols).reset_index()
+        metric_cols = [c for c in [mrr_col, p5_col, p10_col, recall_col] if c]
 
         def _serialize_frame(frame: pd.DataFrame) -> list[dict]:
             out = frame.copy()
@@ -240,29 +256,68 @@ def create_app() -> FastAPI:
                 out[col] = out[col].astype(float)
             return out.to_dict(orient="records")
 
+        # Calculate global metrics for baseline and aligned
+        baseline_global = df_baseline[df_baseline[category_col] == "all"].groupby(model_col)[metric_cols].mean().reset_index()
+        aligned_global = df_aligned[df_aligned[category_col] == "all"].groupby(model_col)[metric_cols].mean().reset_index()
+
+        # Calculate deltas - use actual model names from CSV
+        deltas = []
+        for model in baseline_global[model_col].unique():
+            base_row = baseline_global[baseline_global[model_col] == model]
+            aligned_row = aligned_global[aligned_global[model_col] == model]
+
+            if not base_row.empty and not aligned_row.empty:
+                delta_row = {model_col: model}
+                for col in metric_cols:
+                    base_val = base_row[col].values[0] if not base_row.empty else 0
+                    aligned_val = aligned_row[col].values[0] if not aligned_row.empty else 0
+                    delta_row[f"{col}_delta"] = aligned_val - base_val
+                deltas.append(delta_row)
+
+        # Language-specific metrics (Code-Switched, English, Tagalog)
+        baseline_lang = df_baseline[df_baseline[category_col] == "code_switched"].groupby(model_col)[metric_cols].mean().reset_index()
+        aligned_lang = df_aligned[df_aligned[category_col] == "code_switched"].groupby(model_col)[metric_cols].mean().reset_index()
+
+        baseline_english = df_baseline[df_baseline[category_col] == "english"].groupby(model_col)[metric_cols].mean().reset_index()
+        aligned_english = df_aligned[df_aligned[category_col] == "english"].groupby(model_col)[metric_cols].mean().reset_index()
+
+        baseline_tagalog = df_baseline[df_baseline[category_col] == "tagalog"].groupby(model_col)[metric_cols].mean().reset_index()
+        aligned_tagalog = df_aligned[df_aligned[category_col] == "tagalog"].groupby(model_col)[metric_cols].mean().reset_index()
+
+        # Semantic type breakdown (Case-Law, Definitional, Procedural)
+        baseline_semantic = df_baseline[df_baseline[category_col].isin(["case_law", "definitional", "procedural"])].groupby([model_col, category_col])[metric_cols].mean().reset_index()
+        aligned_semantic = df_aligned[df_aligned[category_col].isin(["case_law", "definitional", "procedural"])].groupby([model_col, category_col])[metric_cols].mean().reset_index()
+
+        # Add per-query sample data from detailed metrics
+        sample_data = []
+        if METRICS_DETAILED_ALIGNED_CSV.exists():
+            df_detailed = pd.read_csv(METRICS_DETAILED_ALIGNED_CSV)
+            df_detailed.columns = [c.strip().lower().replace(" ", "_") for c in df_detailed.columns]
+            sample_data = _serialize_frame(df_detailed.head(500))
+
         payload: dict[str, Any] = {
             "columns": {
                 "model": model_col,
-                "language": lang_col,
-                "semantic": sem_col,
+                "category": category_col,
                 "mrr": mrr_col,
                 "p5": p5_col,
                 "p10": p10_col,
                 "recall": recall_col,
             },
-            "global": _serialize_frame(global_df),
-            "raw_count": len(df),
+            "baseline_global": _serialize_frame(baseline_global),
+            "aligned_global": _serialize_frame(aligned_global),
+            "deltas": deltas,
+            "baseline_language": _serialize_frame(baseline_lang),
+            "aligned_language": _serialize_frame(aligned_lang),
+            "baseline_english": _serialize_frame(baseline_english),
+            "aligned_english": _serialize_frame(aligned_english),
+            "baseline_tagalog": _serialize_frame(baseline_tagalog),
+            "aligned_tagalog": _serialize_frame(aligned_tagalog),
+            "baseline_semantic": _serialize_frame(baseline_semantic),
+            "aligned_semantic": _serialize_frame(aligned_semantic),
+            "sample_data": sample_data,
         }
 
-        if lang_col and agg_cols:
-            lang_agg = df.groupby([model_col, lang_col]).agg(agg_cols).reset_index()
-            payload["by_language"] = _serialize_frame(lang_agg)
-
-        if sem_col and agg_cols:
-            sem_agg = df.groupby([model_col, sem_col]).agg(agg_cols).reset_index()
-            payload["by_semantic"] = _serialize_frame(sem_agg)
-
-        payload["raw_sample"] = _serialize_frame(df.head(500))
         return payload
 
     if FRONTEND_ASSETS.is_dir():

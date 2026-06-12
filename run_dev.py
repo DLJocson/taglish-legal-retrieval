@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Development server with live frontend reload (no server restart needed for UI edits).
+Development server with hot-reloading.
 
-- Sets DEV=1 so HTML/CSS/JS are served with no-cache headers (refresh browser to see changes).
-- Does not use --reload by default (avoids reloading heavy embedding models on every save).
+Frontend changes (HTML/CSS/JS): Refresh browser - no restart needed.
+Backend changes (Python): Auto-reload with uvicorn (models reload on change).
 
 Usage:
-  python run_dev.py
-  python run_dev.py --reload-backend   # also restart on Python file changes
+  python run_dev.py                    # Auto-reload on all changes
+  python run_dev.py --no-reload        # No auto-reload (manual restart)
 """
 
 from __future__ import annotations
@@ -21,22 +21,28 @@ os.environ.setdefault("DEV", "1")
 def main() -> None:
     import uvicorn
 
-    reload = "--reload-backend" in sys.argv
+    no_reload = "--no-reload" in sys.argv
+    reload = not no_reload
+
     kwargs: dict = {
         "app": "api:app",
         "host": "127.0.0.1",
         "port": 8000,
         "reload": reload,
+        "reload_dirs": ["backend", "frontend"] if reload else None,
     }
-    if reload:
-        kwargs["reload_dirs"] = ["backend", "frontend"]
 
     print("PH Legal AI Search — dev server")
     print("  Search:     http://127.0.0.1:8000/")
     print("  Analytics:  http://127.0.0.1:8000/analytics")
-    print("  DEV=1: save CSS/JS/HTML, then refresh the browser (no server restart).")
+    print("\n  Hot-reload status:")
     if reload:
-        print("  --reload-backend: Python changes restart the server (models reload).")
+        print("  ✓ Frontend: Save HTML/CSS/JS, then refresh browser")
+        print("  ✓ Backend:  Auto-restarts on Python changes (models reload)")
+    else:
+        print("  ✗ Auto-reload disabled (manual restart required)")
+    print("\n  Press Ctrl+C to stop\n")
+
     uvicorn.run(**kwargs)
 
 
