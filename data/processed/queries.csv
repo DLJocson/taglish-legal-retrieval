@@ -1,0 +1,181 @@
+query_id,query_text,language_label,semantic_type,relevant_passage_ids,split
+Q_001,Pwede bang kasuhan ang seller kung walang binigay na resibo sa Shopee/Lazada order?,Tagalog,Case-Law,,test
+Q_002,Ano ang gagawin kapag na-scam ako sa Facebook Marketplace?,Tagalog,Definitional,,train
+Q_003,Pwede bang i-report ang rider kung hindi niya dinedeliver pero marked as delivered?,Other,Case-Law,,train
+Q_004,What if someone used my GCash number to receive scam money?,English,Case-Law,,train
+Q_005,Pwede bang kasuhan ang kapitbahay na nag-video sa loob ng bahay namin without permission?,Tagalog,Case-Law,,train
+Q_006,Ano ang gagawin kapag may nag-post ng fake hiring job na nanghihingi ng placement fee?,Tagalog,Definitional,,train
+Q_007,Pwede bang magreklamo kung hindi binibigay ng employer ang 13th month pay?,Tagalog,Procedural,,test
+Q_008,What if company keeps delaying SSS contribution posting?,English,Case-Law,,train
+Q_009,Pwede bang idemanda ang landlord na biglang nagtaas ng rent without agreement?,Tagalog,Case-Law,,train
+Q_010,Ano ang rights ko kapag pinapalayas ako ng landlord nang walang notice?,Tagalog,Definitional,,train
+Q_011,Pwede bang kasuhan ang taong nag-post ng fake scandal tungkol sa akin sa FB?,Tagalog,Case-Law,,train
+Q_012,What if someone is using my photos to scam other people online?,English,Case-Law,,train
+Q_013,Pwede bang idemanda ang ex na naglalabas ng private chat screenshots?,Code-Switched,Case-Law,,test
+Q_014,Ano ang legal remedy kapag may taong naninira ng business via fake reviews?,Tagalog,Definitional,,train
+Q_015,Pwede bang kasuhan ang kapitbahay na sinira ang CCTV camera ko?,Tagalog,Case-Law,,train
+Q_016,What happens if someone refuses to return borrowed phone or laptop?,English,Case-Law,,train
+Q_017,Pwede bang magreklamo kung pinipilit akong magbayad ng utang na hindi ko inutang?,Tagalog,Procedural,,test
+Q_018,Ano ang rights ng student kapag pinahiya siya publicly ng teacher?,Tagalog,Definitional,,test
+Q_019,Pwede bang kasuhan ang employer na pinilit akong mag-resign?,Tagalog,Case-Law,,train
+Q_020,What if I was terminated through Messenger without hearing?,English,Case-Law,,test
+Q_021,Pwede bang gamitin ang screenshot ng Messenger convo as proof sa kaso?,Code-Switched,Case-Law,,train
+Q_022,Ano ang legal effect ng edited screenshots sa legal complaint?,English,Definitional,,train
+Q_023,Pwede bang idemanda ang taong nag-hack ng Facebook ko at nag-message sa iba?,Tagalog,Case-Law,,train
+Q_024,What if someone opened a loan under my name without permission?,English,Case-Law,,train
+Q_025,Pwede bang kasuhan ang taong nag-post ng fake obituary tungkol sa akin?,Tagalog,Case-Law,,train
+Q_026,Pwede bang i-dismiss ang case dahil edited ang evidence?,English,Case-Law,,train
+Q_027,Pwede bang idemanda ang online seller na hindi nagpapadala ng item after payment?,Tagalog,Case-Law,,train
+Q_028,What if courier marked item delivered pero wala akong nareceive?,English,Case-Law,,test
+Q_029,Ano ang legal action sa AI-generated fake content using my face?,English,Definitional,,train
+Q_030,Ano ang gagawin kapag may kapitbahay na laging nag-iingay kahit paulit-ulit pinagsasabihan?,Tagalog,Definitional,,train
+Q_031,Pwede bang idemanda ang taong nag-spread ng fake rumor sa workplace chat?,Tagalog,Case-Law,,train
+Q_032,What if coworker is sabotaging my job by spreading lies?,English,Case-Law,,train
+Q_033,Pwede bang kasuhan ang taong nag-fake account para mangutang sa pangalan ko?,Tagalog,Case-Law,,test
+Q_034,Ano ang legal process kapag na-hack ang Gmail account ko?,Tagalog,Definitional,,train
+Q_035,Pwede bang idemanda ang taong nag-post ng defamatory TikTok video about me?,Tagalog,Case-Law,,train
+Q_036,What if someone refuses to return rental deposit after I move out?,English,Case-Law,,train
+Q_037,Pwede bang kasuhan ang nagkakalat ng edited screenshots sa group chat?,Tagalog,Case-Law,,train
+Q_038,Ano ang gagawin kapag may co-owner na nagbebenta ng shared property without consent?,Tagalog,Definitional,,train
+Q_039,Pwede bang idemanda ang taong nanira ng motor ko dahil sa away?,Tagalog,Case-Law,,train
+Q_040,What if someone damaged my parked car intentionally?,English,Case-Law,,train
+Q_041,Pwede bang magreklamo kapag may unauthorized salary deduction?,Tagalog,Procedural,,train
+Q_042,Ano ang rights ko kapag hindi binigay ang final pay after resignation?,Tagalog,Definitional,,train
+Q_043,Pwede bang kasuhan ang recruiter na nang-scam sa job application fee?,Code-Switched,Case-Law,,train
+Q_044,What if OFW applicant was scammed by illegal recruiter?,English,Case-Law,,test
+Q_045,Pwede bang idemanda ang taong nagbanta sa chat na sasaktan ako?,Tagalog,Case-Law,,test
+Q_046,Ano ang gagawin kapag may stalking via Messenger or Instagram?,Tagalog,Definitional,,train
+Q_047,Pwede bang kasuhan ang ex na nag-leak ng private photos?,Tagalog,Case-Law,,train
+Q_048,What if someone threatens to leak my personal videos online?,English,Case-Law,,train
+Q_049,Pwede bang idemanda ang taong nag-post ng fake ownership claim sa lupa?,Tagalog,Case-Law,,train
+Q_050,Ano ang legal remedy kapag may double sale ng property?,Tagalog,Definitional,,train
+Q_051,Pwede bang kasuhan ang taong pumasok sa bahay namin nang walang permission?,Tagalog,Case-Law,,test
+Q_052,What if someone trespasses inside a rented apartment unit?,English,Case-Law,,train
+Q_053,Pwede bang idemanda ang taong hindi nagbalik ng hiniram na pera kahit may chat proof?,Tagalog,Case-Law,,train
+Q_054,Ano ang gagawin kapag may scam seller sa TikTok shop?,Tagalog,Definitional,,train
+Q_055,Pwede bang magreklamo sa DTI kapag defective ang product at ayaw i-refund?,Tagalog,Procedural,,train
+Q_056,What if someone impersonates me in online transactions to scam others?,English,Case-Law,,train
+Q_057,Pwede bang idemanda ang taong nag-post ng fake accusation sa school group chat?,Code-Switched,Case-Law,,train
+Q_058,Ano ang legal action kapag may harassment sa workplace messenger?,Tagalog,Definitional,,train
+Q_059,Pwede bang kasuhan ang taong sinisira ang reputation ng small business online?,Tagalog,Case-Law,,train
+Q_060,What if someone keeps sending threatening messages despite blocking?,English,Case-Law,,train
+Q_061,Ano ang legal meaning ng “case dismissed”?,Tagalog,Definitional,,train
+Q_062,Pwede ba ako magreklamo kapag nawala ang gamit ko sa school?,Tagalog,Procedural,,train
+Q_063,Ano mangyayari kapag may umutang tapos di nagbayad?,Tagalog,Case-Law,,train
+Q_064,Legal ba mag-record ng usapan sa phone?,Tagalog,Case-Law,,test
+Q_065,Ano ang gagawin kapag may nagnakaw ng cellphone ko?,Tagalog,Definitional,,train
+Q_066,Pwede ba kasuhan ang kapitbahay dahil sa sobrang ingay?,Tagalog,Case-Law,,train
+Q_067,Ano ang rights ko kapag pinapagalitan ako ng boss ko?,Tagalog,Definitional,,train
+Q_068,Pwede ba ako tanggalin sa trabaho bigla?,Tagalog,Case-Law,,test
+Q_069,Ano ang ibig sabihin ng affidavit?,Tagalog,Definitional,,test
+Q_070,Pwede ba mag-file ng kaso kahit walang abogado?,Tagalog,Procedural,,train
+Q_071,Ano ang dapat gawin kapag may nanakit sa akin?,Tagalog,Definitional,,test
+Q_072,Legal ba ang pananakot sa chat?,Tagalog,Case-Law,,train
+Q_073,Pwede ba magpa-barangay muna bago magdemanda?,Tagalog,Case-Law,,train
+Q_074,Ano ang gagawin kapag ayaw ibalik ang hiniram kong gamit?,Tagalog,Definitional,,train
+Q_075,Pwede ba ako kasuhan kung nag-post ako ng maling info?,Tagalog,Case-Law,,train
+Q_076,Ano ang ibig sabihin ng “no contact order”?,Tagalog,Definitional,,train
+Q_077,Pwede ba ako habulin sa utang kahit verbal lang?,Tagalog,Case-Law,,test
+Q_078,Ano ang mangyayari kapag hindi ako sumipot sa hearing?,Tagalog,Definitional,,train
+Q_079,Legal ba ang pambabatikos sa Facebook?,Tagalog,Case-Law,,test
+Q_080,Pwede ba ako magreklamo kapag late palagi ang sahod?,Tagalog,Procedural,,test
+Q_081,"Kapag hindi nagbayad ng utang ang friend ko, pwede ba akong mag-file ng kaso?",Tagalog,Procedural,,train
+Q_082,What happens if someone steals my bag in a jeepney?,English,Case-Law,,train
+Q_083,Pwede ba kasuhan ang kapitbahay ko dahil sa ingay gabi-gabi?,Tagalog,Case-Law,,train
+Q_084,Ano ang rights ko kapag tinanggal ako sa trabaho nang walang notice?,Tagalog,Definitional,,train
+Q_085,"Kapag hindi sinosoli ang down payment sa cancelled deal, ano ang legal remedy?",Code-Switched,Definitional,,train
+Q_086,Pwede ba akong kasuhan kung may nasabi akong insult online?,Tagalog,Case-Law,,train
+Q_087,Ano ang proseso kapag gusto kong ipa-barangay ang reklamo ko?,Tagalog,Definitional,,train
+Q_088,Legal ba ang subleasing ng apartment nang walang consent ng landlord?,Tagalog,Case-Law,,test
+Q_089,"Kapag may minor na nagpakasal, valid ba yun?",Tagalog,Case-Law,,train
+Q_090,Ano ang mangyayari kung may dalawang tao na nag-claim ng same property?,Tagalog,Definitional,,train
+Q_091,Pwede ba mag-file ng annulment kahit matagal nang hiwalay?,Tagalog,Procedural,,train
+Q_092,Ano ang difference ng nullity of marriage at annulment?,English,Definitional,,test
+Q_093,"Kapag naputol ang internet service ko, pwede ba akong magreklamo sa provider?",Tagalog,Procedural,,test
+Q_094,What are my rights if my employer doesn’t give my final pay?,English,Case-Law,,train
+Q_095,Pwede ba i-evict ang squatter agad without court order?,English,Case-Law,,train
+Q_096,Ano ang legal effect ng handwritten will?,English,Definitional,,train
+Q_097,"Kapag may anak kami pero hindi kasal, sino may custody?",Tagalog,Case-Law,,train
+Q_098,Pwede ba ang baptismal certificate bilang proof of identity?,English,Case-Law,,train
+Q_099,Ano ang penalty sa reckless imprudence resulting in damage to property?,English,Definitional,,train
+Q_100,"Kapag may pinirmahan akong contract na di ko fully naintindihan, valid pa ba yun?",Tagalog,Case-Law,,train
+Q_101,"Under Philippine law, paano ina-apply ang Article 15 ng Civil Code sa legal capacity ng isang Filipino abroad?",Tagalog,Procedural,,train
+Q_102,"Kapag ang isang kasal ay ginawa abroad pero hindi sinunod ang Philippine formalities, void ba agad yun?",Tagalog,Case-Law,,train
+Q_103,Ano ang legal effect ng psychological incapacity sa marriage cases?,Code-Switched,Definitional,,test
+Q_104,Pwede bang ma-recognize sa Pilipinas ang foreign divorce ng isang Filipino spouse?,Tagalog,Case-Law,,train
+Q_105,"Kapag ang property ay nasa pangalan lang ng isang asawa, paano hinahati sa separation of property?",Tagalog,Procedural,,train
+Q_106,Ano ang remedies kapag may forged deed of sale sa lupa?,Tagalog,Definitional,,train
+Q_107,Paano pinapatunayan ang intestate succession kapag walang will?,Tagalog,Procedural,,train
+Q_108,Ano ang epekto ng an omitted compulsory heir sa partition of estate?,English,Definitional,,test
+Q_109,"Pwede bang ma-set aside ang contract dahil sa mistake, fraud, or undue influence?",English,Case-Law,,test
+Q_110,What is the legal basis for a writ of amparo?,English,Definitional,,train
+Q_111,"Kapag ang arrest ay ginawa without a valid warrant, anong remedies ang available?",Code-Switched,Case-Law,,train
+Q_112,Ano ang difference ng illegal dismissal at constructive dismissal?,Other,Definitional,,test
+Q_113,"Kapag may employee na nag-resign under pressure, considered voluntary ba yun?",English,Case-Law,,train
+Q_114,Paano ina-assess ang probable cause sa filing of criminal complaints?,English,Procedural,,test
+Q_115,Ano ang legal process kapag gusto kong magpa-kas ng child support?,Tagalog,Definitional,,train
+Q_116,"Kapag may online scam na ginawa gamit ang e-wallet, anong kaso ang possible?",Tagalog,Case-Law,,test
+Q_117,Ano ang standards para masabing defamatory ang isang social media post?,Tagalog,Definitional,,train
+Q_118,Pwede bang gamitin ang CCTV footage as evidence kahit walang consent?,Code-Switched,Case-Law,,train
+Q_119,Paano ina-apply ang chain of custody sa drug cases?,Code-Switched,Procedural,,train
+Q_120,"Kapag may overlapping claims sa ancestral land, anong legal framework ang ginagamit?",Tagalog,Case-Law,,train
+Q_121,Ano ang parusa sa illegal logging?,Tagalog,Definitional,,train
+Q_122,Revised Penal Code article 294,English,Case-Law,,train
+Q_123,"Yung business namin sinisiraan online ng dating partner namin gamit fake posts and comments, anong ikakaso sa kanya at anong proof ang need?",Tagalog,Case-Law,,train
+Q_124,Penalty ng qualified theft?,English,Definitional,,train
+Q_125,Anong parusa sa mild physical injuries na gawa ng ibang tao sakin?,Tagalog,Definitional,,train
+Q_126,Marriage annulment law?,English,Case-Law,,train
+Q_127,Pwede bang managot yung boyfriend ko na palagi akong minumura at binabantaan na sasaktan ako?,Tagalog,Case-Law,,train
+Q_128,"Yung kaibigan ko binubugbog ng asawa nya, ano pwede ko gawin?",Tagalog,Case-Law,,train
+Q_129,Pwede ko ba kasuhan katrabaho ko na may matagal nang utang sa akin kahit ang pruweba ko lang ay mga text namin?,Tagalog,Case-Law,,train
+Q_130,Counted ba as theft yung kumukuha ng pera yung asawa ko nang palihim sa shared savings namin?,Tagalog,Definitional,,train
+Q_131,What do I do kapag binibisita pa rin ako ng ex ko even when I told him to stay away?,Tagalog,Procedural,,train
+Q_132,"Naghiwalay na kami ng asawa ko pero ayaw nya ibigay sakin yung share ko sa savings namin and other assets na dapat para sa akin, ano ang pwede ko ikaso sa kanya?",Tagalog,Definitional,,train
+Q_133,RA 9262 explanation,Other,Case-Law,,train
+Q_134,Law against defamation,Other,Definitional,,train
+Q_135,What is the law on custody of children under the family law?,English,Definitional,,train
+Q_136,Madedemanda ko ba kapatid ko kapag nasira nya yung gamit ko na di ko naman pinagamit sa kanya,Tagalog,Case-Law,,train
+Q_137,What are the consequences if a parent neglects to support a child?,English,Case-Law,,train
+Q_138,Pwede bang idemanda ang partner mo kung sinisira niya yung personal things mo kapag nag-aaway kayo?,Tagalog,Case-Law,,test
+Q_139,Pwede bang managot ang taong nagpakalat ng larawan mo nang walang consent?,Tagalog,Case-Law,,test
+Q_140,What are the elements of grave threats?,English,Definitional,,train
+Q_141,law against identity theft?,English,Definitional,,train
+Q_142,Ano yung legal basis ng support for illegitimate children?,Code-Switched,Case-Law,,train
+Q_143,Sakop ba ng VAWC kapag yung partner ko naninira ng gamit ko pag nag-aaway kami?,Tagalog,Definitional,,train
+Q_144,"May isang tao na pinapirma yung lola ko sa papel na hindi niya maintindihan tapos doon pala nailipat yung rights sa property, may habol ba kami?",Tagalog,Case-Law,,train
+Q_145,"May isang co-owner na nagrerenta ng buong lupa kahit hindi pumayag yung iba, tapos siya lang ang tumatanggap ng bayad, paano ito tinatrato sa civil law?",Tagalog,Procedural,,train
+Q_146,penalty for slander?,Other,Definitional,,train
+Q_147,Pwede bang humingi ng support sa tatay na hindi nagbibigay sa anak?,Tagalog,Case-Law,,train
+Q_148,What is the legal effect of a fake signature on a deed?,English,Definitional,,train
+Q_149,Pwede bang pigilan ang isang tao na pumasok sa property mo?,Tagalog,Case-Law,,train
+Q_150,What can be done if a co-owner keeps all the rent from a shared property?,English,Case-Law,,train
+Q_151,"Yung isang tao sa pamilya namin kinukuha yung mga gamit sa bahay at sinasabing kanya raw lahat dahil siya ang nagbabayad ng rent, ano ang rights naming ibang nakatira doon?",Tagalog,Definitional,,train
+Q_152,"Yung ex ko nag-post ng screenshots ng private messages namin at ginamit pa para siraan ako sa trabaho, may kaso ba kahit walang physical harm?",Tagalog,Case-Law,,train
+Q_153,"May tao na pumasok sa bakuran namin at kumuha ng gamit na hindi naman sa kanya, tapos sabi niya may utang daw kami sa kanya kaya kinuha niya, anong pwede naming gawin?",Tagalog,Case-Law,,test
+Q_154,"Ayaw ibigay ng seller ang property kahit bayad na, ano pwede parusa?",Tagalog,Definitional,,train
+Q_155,"Pinagbabantaan ako na kukunin ang anak ko, ano dapat ko gawin?",Tagalog,Case-Law,,train
+Q_156,Ano ang slander at anong law yun,Tagalog,Definitional,,train
+Q_157,Para saan pagfifile ng restraining order?,Tagalog,Procedural,,train
+Q_158,What if a spouse disappears and leaves debts?,English,Case-Law,,test
+Q_159,Pwede bang bawiin ang pirma sa kasunduan?,Tagalog,Case-Law,,train
+Q_160,What if a parent blocks access to a child?,English,Case-Law,,train
+Q_161,"May kakilala ako na hindi na pinapayagan ng asawa niya makita yung anak nila at binabantaan pa siyang padadalhan ng pulis kapag sinubukan nya, anong ikakaso?",Tagalog,Case-Law,,train
+Q_162,"Yung tatay ng bata, biglang nawala at ayaw nang magbigay ng kahit anong help, pero may messages sila na nag-uusap tungkol sa support, puwede ba iyon gamiting ebidensya?",Tagalog,Case-Law,,train
+Q_163,"May tao na nagpakalat ng edited screenshots para palabasing may utang ako sa kanya, tapos ginamit niya iyon para takutin akong magbayad, ano ang puwede kong gawin?",Tagalog,Definitional,,train
+Q_164,Pwede bang magreklamo kung may nagbanta sa text?,Tagalog,Procedural,,test
+Q_165,Anong pwede ikaso sa falsification of documents?,English,Case-Law,,train
+Q_166,"My ex-boyfriend is threatening me na i-le-leak niya raw mga private photos at videos namin sa Telegram group kapag hindi ako nakipagbalikan sa kanya. Takot na takot na ako, pwede ko ba siyang ipa-kulong sa VAWC or may ibang mas mabilis na batas para dito?",Tagalog,Case-Law,,train
+Q_167,"Yung asawa ko bigla na lang akong pinalayas sa bahay namin tapos dinala niya lahat ng passbook ng joint accounts namin at yung titulo ng lupa na nakapangalan sa aming dalawa. Pwede ko ba siyang kasuhan ng theft kahit mag-asawa kami, o counted ba 'to na abuse?",Tagalog,Definitional,,test
+Q_168,Pwede bang maging ground for legal separation kung nahuli ko yung asawa kong lalaki na may pamilya na pala sa ibang probinsya? Gusto ko na rin makuha yung full custody ng mga anak namin.,Tagalog,Case-Law,,train
+Q_169,Valid ba yung pre-nuptial agreement na pinirmahan namin ng fiance ko bago kami ikasal kung ginawa lang namin sa papel at hindi naman dinala sa notaryo?,Tagalog,Case-Law,,train
+Q_170,"Nag-file kami ng case against sa driver na nakabangga sa amin pero sabi ng lawyer may jurisprudence raw tungkol sa ""temperate damages"", ano ba ibig sabihin nun.",Tagalog,Definitional,,train
+Q_171,"May nakita akong post sa FB na ginamit yung picture ko para manloko ng tao sa buy and sell group, tapos ang nakalagay dun scammer daw ako at magnanakaw. Sobrang daming nag-she-share at nag-mu-mura sa akin sa comments kahit hindi naman ako yun. Cyber-libel ba ito or identity theft, at ano ang pwede kong ikaso sa gumawa ng fake account?",Tagalog,Definitional,,train
+Q_172,"Hinarang ng mga pulis yung pinsan ko sa daan habang naglalakad, tapos pinilit nilang buksan yung sling bag niya kahit wala naman silang pinapakitang warrant. Bigla silang may ""nakitang"" maliit na sachet ng drugs sa loob. Pwede ba namin ma-question sa court na illegal search and seizure yung ginawa sa kanya para mabasura yung kaso?",Tagalog,Case-Law,,train
+Q_173,Ano ang exact legal distinction ng homicide sa murder kapag walang planong pumatay pero may ginamit na patalim?,Tagalog,Definitional,,test
+Q_174,"Elements ng robbery with violence or intimidation, iba ba to sa simpleng pagnanakaw lang?",Code-Switched,Definitional,,train
+Q_175,Pwede bang makasuhan ng trespassing yung may-ari ng lupa kung pumasok siya sa bahay ng tenant nang walang paalam habang may contract pa?,Tagalog,Case-Law,,train
+Q_176,"Hiwalay na kami ng live-in partner ko for 2 years at may anak kaming isa. Ayaw niya magbigay ng kahit magkanong support sa bata kahit alam kong malaki ang sahod niya sa IT firm. Kapag humihingi ako, sinasabihan niya lang ako na mag-trabaho ako at huwag umasa sa kanya. Pwede ko ba siyang balikan at kasuhan ng economic abuse under VAWC para mapwersa siyang mag-sustento?",Tagalog,Case-Law,,train
+Q_177,Sakop ba ng VAWC law ang magka-relasyon na parehong babae (lesbian relationship) kung may nagaganap na physical abuse?,Tagalog,Definitional,,train
+Q_178,May naka-away akong driver sa daan kanina tapos hinabol niya ako hanggang sa makarating ako sa gas station. Bumaba siya ng sasakyan na may dalang baseball bat tapos pinagpupukpok niya yung windshield at hood ng kotse ko habang sumisigaw na papatayin niya raw ako. Anong gagawin ko?,Tagalog,Procedural,,test
+Q_179,"Nag-post ako ng feedback sa isang group page tungkol sa palpak na service ng isang salon kasi nasunog yung buhok ko sa rebond. Ngayon, binabantaan ako nung owner na mag-dedemanda raw siya ng cyber-libel kung hindi ko buburahin yung post at mag-pa-public apology. May pananagutan ba ako sa batas kahit totoo naman yung sinabi ko at may pictures ako ng nasirang buhok ko?",Tagalog,Case-Law,,train
+Q_180,Nakukulong ba ang tao sa Pilipinas kapag nakasakit ng kapwa dahil sa self-defense lang?,Tagalog,Case-Law,,train

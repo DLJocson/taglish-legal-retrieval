@@ -181,4 +181,5 @@ cython_debug/
 .cursorindexingignore
 
 # Project data artifacts
-/data/
+# /data/
+data/processed/indices/
