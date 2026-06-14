@@ -33,6 +33,11 @@ def normalize_text(text):
 def segment_passages(text, window=300, stride=50):
     """Split text into overlapping token windows for dense retrieval.
 
+    Window of 300 tokens provides sufficient context for legal passages while
+    staying within embedding model context limits. Stride of 50 creates 83% overlap
+    between consecutive passages, ensuring no relevant information is lost at
+    boundaries.
+
     Args:
         text: Full document text after normalization.
         window: Maximum tokens per passage (default 300).
@@ -48,8 +53,9 @@ def segment_passages(text, window=300, stride=50):
 def identify_language(text):
     """Classify passage language, including English–Filipino code-switching.
 
-    Code-switching is assigned when both English and Tagalog probabilities
-    exceed 0.20; otherwise the dominant language is used.
+    Dual-threshold heuristic: both English and Tagalog must exceed 20% probability
+    to qualify as code-switched. This avoids false positives from loanwords or
+    minor code-mixing while capturing true Taglish passages.
 
     Args:
         text: Passage text to classify.
@@ -62,6 +68,7 @@ def identify_language(text):
         predictions = detect_langs(text)
         res = {l.lang: l.prob for l in predictions}
 
+        # Dual-threshold: both languages must exceed 20% for code-switching
         if 'en' in res and 'tl' in res and min(res['en'], res['tl']) > 0.20:
             return "Code-Switched"
 
@@ -78,7 +85,7 @@ final_data = []
 print(f"Normalizing, chunking, and language-tagging {len(df)} documents. This will take a few minutes...")
 
 for index, doc in df.iterrows():
-    # Extract metadata from citation_information JSON
+    # Extract metadata from citation_information JSON for filtering and display
     date_str = None
     title_str = None
     short_title_str = None
@@ -88,6 +95,7 @@ for index, doc in df.iterrows():
         title_str = citation.get('title', None)
         short_title_str = citation.get('short_title', None)
     except:
+        # Fallback to None if JSON parsing fails (some rows may have malformed data)
         pass
     
     clean_text = normalize_text(doc['text'])

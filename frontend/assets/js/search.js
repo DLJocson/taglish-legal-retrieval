@@ -13,6 +13,8 @@ let linawEnabled = false;
 let linawEnabledA = false;
 let linawEnabledB = false;
 
+// Common English stop words to filter out during keyword extraction
+// Removing these improves highlighting relevance by focusing on content words
 const STOP_WORDS = new Set([
   "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
   "by", "from", "is", "are", "was", "were", "be", "been", "have", "has", "do", "does",
@@ -20,11 +22,15 @@ const STOP_WORDS = new Set([
   "that", "these", "those", "what", "which", "who", "when", "where", "why", "how",
 ]);
 
+// Extract meaningful keywords from query for result highlighting
+// Filters out stop words and short tokens (< 3 chars) to focus on content
 function extractKeywords(query) {
   const words = query.toLowerCase().match(/\b\w+\b/g) || [];
   return words.filter((w) => w.length > 2 && !STOP_WORDS.has(w));
 }
 
+// Highlight query keywords in passage text using case-insensitive regex
+// Escapes special regex characters in keywords to prevent pattern errors
 function highlightTextWithKeywords(text, keywords) {
   if (!keywords?.length) return text;
   const uniqueKeywords = [...new Set(keywords)];
@@ -102,7 +108,75 @@ function renderResultCard(result, query, compact = false) {
     </article>`;
 }
 
-function renderResultsList(containerId, results, query, compact = false) {
+function renderDemoMetricsBanner(demoMetrics) {
+  if (!demoMetrics) return "";
+
+  const metrics = [
+    { key: "mrr", label: "MRR", fullLabel: "Mean Reciprocal Rank", definition: "Measures rank of first relevant result (0–1, higher is better)" },
+    { key: "p_at_5", label: "P@5", fullLabel: "Precision@5", definition: "Proportion of relevant results in top 5 (0–1, higher is better)" },
+    { key: "p_at_10", label: "P@10", fullLabel: "Precision@10", definition: "Proportion of relevant results in top 10 (0–1, higher is better)" },
+    { key: "recall_at_10", label: "Recall@10", fullLabel: "Recall@10", definition: "Proportion of all relevant results found in top 10 (0–1, higher is better)" },
+  ];
+
+  const metricCards = metrics.map((metric) => {
+    const data = demoMetrics[metric.key];
+    if (!data) return "";
+
+    const baseline = data.baseline.toFixed(2);
+    const aligned = data.aligned.toFixed(2);
+    const improvement = data.improvement.toFixed(2);
+    
+    let improvementClass = "metric-improvement-neutral";
+    let arrowIcon = "−";
+    let improvementSign = "";
+    
+    if (data.improvement > 0) {
+      improvementClass = "metric-improvement-positive";
+      arrowIcon = "↑";
+      improvementSign = "+";
+    } else if (data.improvement < 0) {
+      improvementClass = "metric-improvement-negative";
+      arrowIcon = "↓";
+    }
+
+    const ariaLabel = `${metric.fullLabel}: Baseline ${baseline}, Aligned ${aligned}, ${data.improvement > 0 ? 'improvement' : data.improvement < 0 ? 'decrease' : 'no change'} of ${improvementSign}${improvement}`;
+
+    return `
+      <div class="metric-card" aria-label="${escapeHtml(ariaLabel)}">
+        <div class="metric-name-wrapper">
+          <div class="metric-name">
+            ${escapeHtml(metric.label)} 
+            <span class="metric-tooltip-wrapper">
+              <i class="ti ti-info-circle metric-info-icon" aria-hidden="true"></i>
+              <span class="metric-tooltip">${escapeHtml(metric.definition)}</span>
+            </span>
+          </div>
+        </div>
+        <div class="metric-transition">
+          <span class="metric-baseline">${baseline}</span>
+          <span class="metric-arrow">→</span>
+          <span class="metric-aligned">${aligned}</span>
+        </div>
+        <div class="metric-improvement ${improvementClass}">
+          <i class="ti ti-arrow-${arrowIcon === '↑' ? 'up' : arrowIcon === '↓' ? 'down' : 'right'} metric-arrow-icon" aria-hidden="true"></i>
+          ${improvementSign}${improvement}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  return `
+    <div class="demo-metrics-banner">
+      <div class="demo-metrics-header">
+        <span class="demo-metrics-title">Evaluation Metrics</span>
+        <span class="demo-metrics-scale">Scale: 0–1</span>
+      </div>
+      <div class="demo-metrics-grid">${metricCards}</div>
+    </div>
+  `;
+}
+
+function renderResultsList(containerId, results, query, compact = false, bannerHtml = "") {
   const container = $(containerId);
   if (!container) return;
 
@@ -116,7 +190,9 @@ function renderResultsList(containerId, results, query, compact = false) {
     return;
   }
 
-  container.innerHTML = results.map((r) => renderResultCard(r, query, compact)).join("");
+  const resultsHtml = results.map((r) => renderResultCard(r, query, compact)).join("");
+  container.innerHTML = bannerHtml + resultsHtml;
+  // Staggered animation: each card appears 60ms after the previous for smooth cascade effect
   container.querySelectorAll(".result-card").forEach((card, index) => {
     card.style.animationDelay = `${index * 0.06}s`;
   });
@@ -187,7 +263,7 @@ function switchTab(tab) {
     pane.classList.toggle("active", pane.dataset.panel === tab);
     if (pane.dataset.panel === tab) {
       pane.classList.remove("pane-entering");
-      void pane.offsetWidth; // force reflow to restart animation
+      void pane.offsetWidth; // Force reflow to restart CSS animation on tab switch
       pane.classList.add("pane-entering");
     }
   });
@@ -279,7 +355,10 @@ async function handleSearch() {
       langDisplay.style.display = "flex";
     }
 
-    renderResultsList("search-results", data.results, data.query);
+    // Render demo metrics banner only if adapter is enabled and metrics are available
+    const metricsBanner = linawEnabled ? renderDemoMetricsBanner(data.demo_metrics) : "";
+
+    renderResultsList("search-results", data.results, data.query, false, metricsBanner);
     if ($("search-empty")) {
       $("search-empty").style.display = data.results.length ? "none" : "flex";
     }
@@ -309,7 +388,7 @@ async function handleCompare() {
   const is_aligned_b = linawEnabledB;
   const top_k = parseInt($("top-k")?.value || "5", 10);
 
-  // Validation: error only if both model and adapter state are identical
+  // Prevent meaningless comparisons: identical model + adapter state yields identical results
   if (model_a === model_b && is_aligned_a === is_aligned_b) {
     showToast("Select different models or different adapter states for comparison.", "error");
     return;
@@ -354,6 +433,9 @@ async function handleCompare() {
   }
 }
 
+// Highlight passages that improved ranking when comparing aligned vs baseline
+// Only applies when comparing aligned model against baseline (same model comparison is invalid)
+// Improved ranking = passage appears earlier (lower rank) in aligned results
 function applyCompareHighlighting(resultsA, resultsB, isAlignedA, isAlignedB) {
   // Only highlight if one column is aligned and the other is not
   if (isAlignedA === isAlignedB) return;
@@ -362,7 +444,7 @@ function applyCompareHighlighting(resultsA, resultsB, isAlignedA, isAlignedB) {
   const baselineResults = isAlignedA ? resultsB : resultsA;
   const alignedContainerId = isAlignedA ? "compare-results-a" : "compare-results-b";
 
-  // Create a map of passage_id to rank in baseline
+  // Create a map of passage_id to rank in baseline for O(1) lookup
   const baselineRankMap = new Map();
   baselineResults.forEach((r) => {
     baselineRankMap.set(r.passage_id, r.rank);

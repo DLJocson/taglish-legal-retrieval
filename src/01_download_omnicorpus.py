@@ -27,11 +27,16 @@ print(f"Original dataset size: {len(df)} rows")
 
 df = df.dropna(subset=['text', CAT_COL])
 
-# Exclude very short documents; headers and stubs lack embedding-ready context.
+# Exclude very short documents (< 50 words)
+# Headers and stubs lack sufficient context for meaningful embeddings
 df = df[df['text'].str.split().str.len() > 50]
 
 print(f"Size after removing empty/short rows: {len(df)} rows")
 
+# Define valid document categories for sampling
+# Statutes: primary legislation (Republic Acts, Commonwealth Acts)
+# Decisions: Supreme Court rulings
+# Regulations: executive issuances (EOs, MCs, LOIs)
 valid_statutes = ['Republic Acts', 'Commonwealth Act', 'Acts']
 valid_decisions = ['Decisions / Signed Resolutions', 'Decisions / Sign Resolutions']
 valid_regs = ['Executive Orders', 'Memorandum Circulars', 'Letter of Instruction']
@@ -41,7 +46,11 @@ decisions_df = df[df[CAT_COL].isin(valid_decisions)]
 regs_df = df[df[CAT_COL].isin(valid_regs)]
 
 try:
-    # Target: 900 statutes, 1,200 decisions, 300 regulations (2,400 total).
+    # Stratified sampling targets (2,400 total):
+    # - 900 statutes (37.5%): Primary legislation for statutory interpretation queries
+    # - 1,200 decisions (50%): Case law for precedent-based queries
+    # - 300 regulations (12.5%): Executive issuances for regulatory queries
+    # This distribution reflects typical legal research query patterns
     statutes = statutes_df.sample(n=900, random_state=42)
     decisions = decisions_df.sample(n=1200, random_state=42)
     regs = regs_df.sample(n=300, random_state=42)

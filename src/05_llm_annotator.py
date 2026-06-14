@@ -16,15 +16,11 @@ from google import genai
 from google.genai import types
 from sentence_transformers import SentenceTransformer
 
-# ==============================================================================
-# EXACT BASE_PATH REGISTRATION
-# ==============================================================================
+# Absolute path to processed data directory
 BASE_PATH = r"C:\Users\louie\OneDrive\Documents\GitHub\comparison-of-embedding-models-ph-legal-text\data\processed"
 print(f"[SETTING] Targeted absolute directory path: {BASE_PATH}")
 
-# =========================
-# CONFIGURATION
-# =========================
+# Configuration
 MODEL_ID = "gemini-2.5-flash"
 PROJECT_ID = "project-fc4bdbdc-0585-464a-864"
 LOCATION = "us-central1"
@@ -49,9 +45,7 @@ MODEL_CONFIGS = {
     "legal_bert": "nlpaueb/legal-bert-base-uncased",
 }
 
-# =========================
-# UTILITIES & DATA PARSERS
-# =========================
+# Utility functions
 def clear_memory():
     gc.collect()
 
@@ -168,9 +162,7 @@ def serialize_sources(provenance, relevant_ids):
         ensure_ascii=False
     )
 
-# =========================
-# LOAD DATA
-# =========================
+# Load queries and passages
 print("Loading dataset...", flush=True)
 
 if os.path.exists(QUERIES_BACKUP_CSV) and START_FROM_INDEX == 0:
@@ -185,21 +177,17 @@ if not os.path.exists(PASSAGES_CSV):
 
 queries_df = pd.read_csv(QUERIES_CSV)
 
-# --- ROBUST PASSAGE INGESTION LAYER (Resolves Tokenization EOF Mistakes) ---
+# Handle CSV parsing errors with fallback strategies
 print("Parsing corpus passages with quoting safety controls...", flush=True)
 try:
-    # Attempt 1: Standard read
     passages_df = pd.read_csv(PASSAGES_CSV)
 except pd.errors.ParserError:
     try:
-        # Attempt 2: Switch engine to Python and handle malformed quote strings gracefully
         print("  Standard parser encountered a syntax anomaly. Retrying with Python engine...", flush=True)
         passages_df = pd.read_csv(PASSAGES_CSV, engine='python', on_bad_lines='skip')
     except Exception:
-        # Attempt 3: Disable strict quoting definitions completely to process strings literally
         print("  Line parsing error persisted. Activating literal fallback rules...", flush=True)
         passages_df = pd.read_csv(PASSAGES_CSV, quoting=csv.QUOTE_NONE, on_bad_lines='skip')
-# --------------------------------------------------------------------------
 
 required_cols = {"query_id", "query_text", "language_label", "semantic_type", "relevant_passage_ids"}
 missing_cols = required_cols - set(queries_df.columns)
@@ -229,9 +217,7 @@ print(f"Total queries: {len(queries_df)}")
 print(f"In-scope queries: {in_scope_count}")
 print(f"Out-of-scope queries excluded: {out_of_scope_count}")
 
-# =========================
-# LOAD RETRIEVERS
-# =========================
+# Load retrieval models and FAISS indices
 print("Loading retrieval models (CPU)...", flush=True)
 
 loaded_systems = {}
@@ -243,9 +229,7 @@ for alias, path in MODEL_CONFIGS.items():
     index = faiss.read_index(index_path)
     loaded_systems[alias] = {"encoder": encoder, "index": index}
 
-# =========================
-# ANNOTATION LOOP
-# =========================
+# Annotate queries with LLM
 for idx, row in queries_df.iloc[START_FROM_INDEX:].iterrows():
     if not bool(row["in_scope"]):
         print(f"Skipping out-of-scope query {row['query_id']} ({row['language_label']}).", flush=True)
@@ -313,9 +297,7 @@ for idx, row in queries_df.iloc[START_FROM_INDEX:].iterrows():
     relevant_ids = []
     success = False
 
-    # =========================
-    # VERTEX GENAI WORKFLOW
-    # =========================
+    # Call Vertex AI Gemini for annotation
     client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
     for attempt in range(MAX_RETRIES):
         try:

@@ -12,11 +12,98 @@ import pandas as pd
 from langdetect import detect_langs
 from sentence_transformers import SentenceTransformer
 
-from backend.config import INDICES_DIR, MASTER_CORPUS_CSV, MODEL_CONFIG, PASSAGES_CSV
+from backend.config import (
+    INDICES_DIR,
+    MASTER_CORPUS_CSV,
+    METRICS_DETAILED_ALIGNED_CSV,
+    METRICS_DETAILED_BASELINE_CSV,
+    MODEL_CONFIG,
+    PASSAGES_CSV,
+)
 from backend.display_title import load_doc_metadata_by_url, resolve_display_title
 
 
+# Global CSV data loading for demo metrics (loaded once at module import)
+try:
+    BASELINE_METRICS_DF = pd.read_csv(METRICS_DETAILED_BASELINE_CSV)
+    ALIGNED_METRICS_DF = pd.read_csv(METRICS_DETAILED_ALIGNED_CSV)
+except FileNotFoundError:
+    BASELINE_METRICS_DF = pd.DataFrame()
+    ALIGNED_METRICS_DF = pd.DataFrame()
+
+
+# Mapping of exact query texts to their query IDs for demo metrics lookup
+BENCHMARK_QUERIES: dict[str, str] = {
+    "Pwede bang idemanda ang ex na naglalabas ng private chat screenshots?": "Q_013",
+    "Pwede bang magreklamo kung hindi binibigay ng employer ang 13th month pay?": "Q_007",
+}
+
+
+def get_demo_metrics(query_text: str, model_name: str) -> dict[str, Any] | None:
+    """Retrieve demo metrics for benchmark queries.
+
+    Args:
+        query_text: The user's query text.
+        model_name: The model key from MODEL_CONFIG (e.g., "BGE-M3", "mSBERT", "Legal-BERT").
+
+    Returns:
+        Dictionary with metrics structure: { "mrr": { "baseline": 0.0, "aligned": 0.25, "improvement": 0.25 }, ... }
+        or None if the query is not in the benchmark set.
+    """
+    if BASELINE_METRICS_DF.empty or ALIGNED_METRICS_DF.empty:
+        return None
+
+    # Look up query ID from benchmark mapping
+    query_id = BENCHMARK_QUERIES.get(query_text)
+    if not query_id:
+        return None
+
+    # Map model name to CSV column naming convention
+    model_csv_name = {
+        "BGE-M3": "BGE_M3",
+        "mSBERT": "MSBERT",
+        "Legal-BERT": "LEGAL_BERT",
+    }.get(model_name)
+
+    if not model_csv_name:
+        return None
+
+    # Query the DataFrames for the specific query and model
+    baseline_row = BASELINE_METRICS_DF[
+        (BASELINE_METRICS_DF["Query_ID"] == query_id) & 
+        (BASELINE_METRICS_DF["Model"] == model_csv_name)
+    ]
+    aligned_row = ALIGNED_METRICS_DF[
+        (ALIGNED_METRICS_DF["Query_ID"] == query_id) & 
+        (ALIGNED_METRICS_DF["Model"] == model_csv_name)
+    ]
+
+    if baseline_row.empty or aligned_row.empty:
+        return None
+
+    baseline = baseline_row.iloc[0]
+    aligned = aligned_row.iloc[0]
+
+    # Extract metric values and calculate improvements
+    metrics = {}
+    for metric in ["MRR", "P@5", "P@10", "Recall@10"]:
+        baseline_val = float(baseline.get(metric, 0.0))
+        aligned_val = float(aligned.get(metric, 0.0))
+        improvement = aligned_val - baseline_val
+
+        metric_key = metric.lower().replace("@", "_").replace("recall@", "recall_")
+        metrics[metric_key] = {
+            "baseline": round(baseline_val, 2),
+            "aligned": round(aligned_val, 2),
+            "improvement": round(improvement, 2),
+        }
+
+    return metrics
+
+
 class AppState:
+    # Global singleton holding loaded models, indices, and corpus data
+    # Initialized during FastAPI lifespan to avoid reloading on each request
     passages_df: pd.DataFrame
     id_mapping: list[str]
     faiss_indices: dict[str, faiss.Index]
@@ -30,7 +117,7 @@ state = AppState()
 state.faiss_indices = {}
 state.models = {}
 state.doc_metadata_by_url = {}
-state.adapters = {}
+state.adapters = {}  # Neural adapters for LINAW alignment
 
 
 def identify_language(text: str) -> str:
@@ -46,16 +133,20 @@ def identify_language(text: str) -> str:
         predictions = detect_langs(text)
         res = {l.lang: l.prob for l in predictions}
 
+        # Dual-threshold: both English and Tagalog must exceed 20% to qualify as code-switched
+        # This avoids false positives from loanwords or minor code-mixing
         if 'en' in res and 'tl' in res and min(res['en'], res['tl']) > 0.20:
             return "Code-Switched"
 
         dominant = predictions[0].lang
         return "Tagalog" if dominant == 'tl' else "English" if dominant == 'en' else "Other"
     except:
+        # Fallback to English on detection failure (e.g., very short queries)
         return "English"
 
 
 def cell_str(value: Any) -> str | None:
+    # Safely convert DataFrame cell values to strings, handling NaN/None/"NaN" strings
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
     s = str(value).strip()
@@ -107,6 +198,9 @@ import torch.nn as nn
 
 
 class LinearAdapter(nn.Module):
+    # Neural adapter for aligning query and passage embeddings (LINAW)
+    # Architecture: Linear -> LayerNorm -> ReLU (preserves dimensionality)
+    # Trained with triplet loss to improve retrieval on Tagalog/code-switched queries
     def __init__(self, dim):
         super().__init__()
         self.proj = nn.Linear(dim, dim, bias=True)
@@ -118,6 +212,8 @@ class LinearAdapter(nn.Module):
 
 
 def load_adapter(adapter_path: str, dim: int):
+    # Load trained adapter weights; returns None if adapter file doesn't exist
+    # Uses CPU loading to avoid GPU memory conflicts during multi-model serving
     if not os.path.exists(adapter_path):
         return None
 
@@ -126,7 +222,7 @@ def load_adapter(adapter_path: str, dim: int):
 
     adapter = LinearAdapter(dim)
     adapter.load_state_dict(state_dict, strict=True)
-    adapter.eval()
+    adapter.eval()  # Disable dropout for inference
     return adapter
 
 
@@ -144,12 +240,15 @@ def encode_query(encoder, query_text, adapter=None):
     with torch.no_grad():
         q = torch.from_numpy(query_vector)
         q = adapter(q)
-        # L2 normalization immediately after adapter layer for IndexFlatIP compatibility
+        # L2 normalization required after adapter for IndexFlatIP (inner product) compatibility
+        # IndexFlatIP expects normalized vectors to compute cosine similarity as dot product
         q = nn.functional.normalize(q, p=2, dim=-1)
         return q.cpu().numpy().astype(np.float32)
 
 
 def faiss_idx_to_passage_id(faiss_idx: int, id_mapping: list[str]) -> str:
+    # Map FAISS internal index to passage ID using id_mapping
+    # Returns raw index as fallback if mapping is corrupted or out of bounds
     if 0 <= faiss_idx < len(id_mapping):
         return str(id_mapping[faiss_idx])
     return str(faiss_idx)
@@ -191,6 +290,8 @@ def run_search_sync(
 
     # Encode query with optional adapter
     vec = encode_query(model, query.strip(), adapter=adapter)
+    # Retrieve 3x top_k to allow post-filtering by language/type/date
+    # Filtered results may reduce count below requested top_k
     distances, indices_result = index.search(vec, top_k * 3)
 
     results: list[dict[str, Any]] = []
@@ -199,6 +300,8 @@ def run_search_sync(
         row = passages_df[passages_df["passage_id"] == passage_id]
 
         if row.empty:
+            # Edge case: FAISS returned an index not present in passages CSV
+            # Can occur if corpus was re-encoded without rebuilding FAISS index
             text = "_Passage not found in corpus._"
             short_title = None
             document_title = None
@@ -228,6 +331,7 @@ def run_search_sync(
             continue
 
         # Convert date_filed to string and normalize NaN/NaT values
+        # Pandas may store dates as datetime objects or strings; handle both
         date_filed_str: str | None = None
         if date_filed and str(date_filed).lower() not in ("nan", "nat", "none", ""):
             date_filed_str = str(date_filed)
@@ -237,6 +341,10 @@ def run_search_sync(
         if date_filed_str and date_to and date_filed_str > date_to:
             continue
 
+        # Confidence thresholds based on cosine similarity (0-1 range)
+        # 0.65+ = high confidence (strong semantic match)
+        # 0.50-0.65 = medium confidence (moderate match)
+        # <0.50 = low confidence (weak or irrelevant)
         confidence = "HIGH" if score >= 0.65 else "MEDIUM" if score >= 0.50 else "LOW"
 
         results.append(

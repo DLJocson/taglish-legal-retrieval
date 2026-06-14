@@ -24,6 +24,7 @@ from backend.config import (
     MODEL_CONFIG,
 )
 from backend.retrieval import (
+    get_demo_metrics,
     load_citation_metadata,
     load_faiss_index,
     load_id_mapping,
@@ -39,6 +40,7 @@ _FRONTEND_NO_CACHE = (".html", ".css", ".js", ".map")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load all heavy resources at startup to avoid per-request latency
     print("Loading passage corpus...")
     state.passages_df = load_passages()
 
@@ -46,6 +48,7 @@ async def lifespan(app: FastAPI):
     state.doc_metadata_by_url = load_citation_metadata()
     print(f"  [ok] {len(state.doc_metadata_by_url)} source documents indexed")
 
+    # Detect column names for language and document type (may vary across CSV versions)
     cols = state.passages_df.columns.tolist() if not state.passages_df.empty else []
     state.lang_col = next((c for c in cols if "lang" in c.lower()), None)
     state.type_col = next(
@@ -61,6 +64,7 @@ async def lifespan(app: FastAPI):
         state.faiss_indices[key] = load_faiss_index(cfg["index_file"])
         print(f"  [ok] {key} index ready")
 
+    # Load default model immediately; other models loaded lazily on first use
     print(f"Loading default model ({DEFAULT_MODEL}); this may take a minute...")
     default_cfg = MODEL_CONFIG[DEFAULT_MODEL]
     state.models[DEFAULT_MODEL] = await asyncio.to_thread(
@@ -70,6 +74,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Clean up resources on shutdown
     state.models.clear()
     state.faiss_indices.clear()
 
@@ -91,7 +96,7 @@ def create_app() -> FastAPI:
     )
 
     if DEV_MODE:
-
+        # Disable browser caching in dev mode to ensure frontend changes are reflected immediately
         @application.middleware("http")
         async def disable_frontend_cache(request: Request, call_next):
             response = await call_next(request)
@@ -166,17 +171,19 @@ def create_app() -> FastAPI:
             body.date_from,
             body.date_to,
         )
+        demo_metrics = get_demo_metrics(body.query, body.model)
         return SearchResponse(
             results=results,
             query=body.query,
             model=body.model,
             count=len(results),
             detected_language=detected_language,
+            demo_metrics=demo_metrics,
         )
 
     @application.post("/api/compare", response_model=CompareResponse)
     async def compare(body: CompareQuery):
-        # Error only if both model and adapter state are identical
+        # Prevent meaningless comparisons: identical model + adapter state yields identical results
         if body.model_a == body.model_b and body.is_aligned_a == body.is_aligned_b:
             raise HTTPException(
                 status_code=400,
@@ -206,13 +213,15 @@ def create_app() -> FastAPI:
             model_b=body.model_b,
             is_aligned_a=body.is_aligned_a,
             is_aligned_b=body.is_aligned_b,
-            detected_language=detected_lang_a,  # Both should be the same for the same query
+            detected_language=detected_lang_a,  # Language detection is query-dependent, not model-dependent
             results_a=results_a,
             results_b=results_b,
         )
 
     @application.get("/api/analytics/metrics")
     async def analytics_metrics():
+        # Aggregate evaluation metrics from CSV files for analytics dashboard
+        # Computes global, language-specific, and semantic-type-specific performance
         if not METRICS_BASELINE_CSV.exists() or not METRICS_ALIGNED_CSV.exists():
             raise HTTPException(
                 status_code=404,
@@ -225,12 +234,13 @@ def create_app() -> FastAPI:
         df_baseline = pd.read_csv(METRICS_BASELINE_CSV)
         df_aligned = pd.read_csv(METRICS_ALIGNED_CSV)
 
+        # Normalize column names for consistent access (handle spacing/casing variations)
         df_baseline.columns = [c.strip().lower().replace(" ", "_") for c in df_baseline.columns]
         df_aligned.columns = [c.strip().lower().replace(" ", "_") for c in df_aligned.columns]
 
         all_cols = df_baseline.columns.tolist()
         model_col = next((c for c in all_cols if "model" in c), None)
-        # Prefer "category" over "scope" for filtering
+        # Prefer "category" over "scope" for filtering (CSV format may vary)
         category_col = next((c for c in all_cols if "category" in c), None) or next((c for c in all_cols if "scope" in c), None)
         mrr_col = next((c for c in all_cols if "mrr" in c), None)
         p5_col = next((c for c in all_cols if "p@5" in c or "p5" in c), None)
@@ -240,7 +250,7 @@ def create_app() -> FastAPI:
         )
         recall_col = next((c for c in all_cols if "recall" in c), None)
 
-        # Normalize category values to match filtering logic
+        # Normalize category values to match frontend filtering logic (hyphens to underscores)
         if category_col:
             df_baseline[category_col] = df_baseline[category_col].str.lower().str.replace("-", "_")
             df_aligned[category_col] = df_aligned[category_col].str.lower().str.replace("-", "_")
@@ -251,16 +261,17 @@ def create_app() -> FastAPI:
         metric_cols = [c for c in [mrr_col, p5_col, p10_col, recall_col] if c]
 
         def _serialize_frame(frame: pd.DataFrame) -> list[dict]:
+            # Convert DataFrame to JSON-serializable format with proper float handling
             out = frame.copy()
             for col in out.select_dtypes(include=["number"]).columns:
                 out[col] = out[col].astype(float)
             return out.to_dict(orient="records")
 
-        # Calculate global metrics for baseline and aligned
+        # Calculate global metrics (averaged across all queries) for baseline and aligned
         baseline_global = df_baseline[df_baseline[category_col] == "all"].groupby(model_col)[metric_cols].mean().reset_index()
         aligned_global = df_aligned[df_aligned[category_col] == "all"].groupby(model_col)[metric_cols].mean().reset_index()
 
-        # Calculate deltas - use actual model names from CSV
+        # Calculate deltas (aligned - baseline) to show LINAW improvement per model
         deltas = []
         for model in baseline_global[model_col].unique():
             base_row = baseline_global[baseline_global[model_col] == model]
@@ -274,21 +285,26 @@ def create_app() -> FastAPI:
                     delta_row[f"{col}_delta"] = aligned_val - base_val
                 deltas.append(delta_row)
 
-        # Language-specific metrics (Code-Switched, English, Tagalog)
+        # Language-specific metrics: Code-Switched (primary target for LINAW)
         baseline_lang = df_baseline[df_baseline[category_col] == "code_switched"].groupby(model_col)[metric_cols].mean().reset_index()
         aligned_lang = df_aligned[df_aligned[category_col] == "code_switched"].groupby(model_col)[metric_cols].mean().reset_index()
 
+        # Language-specific metrics: English (baseline for comparison)
         baseline_english = df_baseline[df_baseline[category_col] == "english"].groupby(model_col)[metric_cols].mean().reset_index()
         aligned_english = df_aligned[df_aligned[category_col] == "english"].groupby(model_col)[metric_cols].mean().reset_index()
 
+        # Language-specific metrics: Tagalog (monolingual baseline)
         baseline_tagalog = df_baseline[df_baseline[category_col] == "tagalog"].groupby(model_col)[metric_cols].mean().reset_index()
         aligned_tagalog = df_aligned[df_aligned[category_col] == "tagalog"].groupby(model_col)[metric_cols].mean().reset_index()
 
-        # Semantic type breakdown (Case-Law, Definitional, Procedural)
+        # Semantic type breakdown to analyze performance across query types
+        # Case-Law: queries about judicial decisions
+        # Definitional: queries asking for legal definitions
+        # Procedural: queries about legal processes
         baseline_semantic = df_baseline[df_baseline[category_col].isin(["case_law", "definitional", "procedural"])].groupby([model_col, category_col])[metric_cols].mean().reset_index()
         aligned_semantic = df_aligned[df_aligned[category_col].isin(["case_law", "definitional", "procedural"])].groupby([model_col, category_col])[metric_cols].mean().reset_index()
 
-        # Add per-query sample data from detailed metrics
+        # Add per-query sample data from detailed metrics (limited to 500 rows for performance)
         sample_data = []
         if METRICS_DETAILED_ALIGNED_CSV.exists():
             df_detailed = pd.read_csv(METRICS_DETAILED_ALIGNED_CSV)
@@ -320,6 +336,7 @@ def create_app() -> FastAPI:
 
         return payload
 
+    # Mount static assets directory for CSS/JS files
     if FRONTEND_ASSETS.is_dir():
         application.mount(
             "/assets",
@@ -347,6 +364,7 @@ def create_app() -> FastAPI:
 
 
 def _no_cache_headers() -> dict[str, str]:
+    # Return cache-control headers only in dev mode to ensure hot-reload works
     if not DEV_MODE:
         return {}
     return {"Cache-Control": "no-store, must-revalidate", "Pragma": "no-cache"}

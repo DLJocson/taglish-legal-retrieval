@@ -14,6 +14,10 @@ METRICS_DETAILED_BASELINE_CSV = ROOT / "data/processed/detailed_evaluation_metri
 METRICS_DETAILED_ALIGNED_CSV = ROOT / "data/processed/detailed_evaluation_metrics_aligned.csv"
 INDICES_DIR = ROOT / "data/processed/indices"
 
+# Model configuration for dense retrieval
+# BGE-M3: State-of-the-art general embedding model with strong multilingual support
+# mSBERT: Multilingual SBERT baseline for cross-lingual retrieval
+# Legal-BERT: Domain-specific model trained on legal text (English-only, for comparison)
 MODEL_CONFIG: dict[str, dict[str, str]] = {
     "BGE-M3": {
         "label": "BGE-M3 — BAAI General Embedding (Recommended)",

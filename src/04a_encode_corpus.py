@@ -28,11 +28,13 @@ print(f"Loaded {len(passages)} passages.")
 
 os.makedirs("data/processed/indices", exist_ok=True)
 
+# Save row-to-passage ID mapping for converting FAISS indices back to passage IDs
 mapping_path = "data/processed/indices/id_mapping.json"
 with open(mapping_path, 'w') as f:
     json.dump(passage_ids, f)
 print(f"Saved FAISS row-to-ID mapping at {mapping_path}")
 
+# Models to encode: multilingual baseline (mSBERT), SOTA general (BGE-M3), domain-specific (Legal-BERT)
 models_to_run = {
     "msbert": "paraphrase-multilingual-mpnet-base-v2",
     "bge_m3": "BAAI/bge-m3",
@@ -50,12 +52,15 @@ for model_alias, model_path in models_to_run.items():
         print("(This will download the model to your cache if it is the first time)")
         model = SentenceTransformer(model_path)
 
-        # BGE-M3 is memory-heavy; smaller batches reduce OOM risk.
+        # BGE-M3 uses smaller batch size (16) due to higher memory footprint
+        # Other models use batch size 64 for faster encoding without OOM risk
         current_batch_size = 16 if "bge-m3" in model_path.lower() else 64
 
         print(f"Encoding passages with batch_size={current_batch_size}... (This will take time!)")
         start_time = time.time()
 
+        # Encode passages with L2 normalization for IndexFlatIP compatibility
+        # Normalized vectors allow inner product to compute cosine similarity
         embeddings = model.encode(
             passages,
             batch_size=current_batch_size,
@@ -65,11 +70,14 @@ for model_alias, model_path in models_to_run.items():
         encoding_time = time.time() - start_time
         print(f"Encoding completed in {encoding_time:.2f} seconds.")
 
+        # Build IndexFlatIP for fast inner product search
+        # With normalized embeddings, inner product equals cosine similarity
         print("Building FAISS IndexFlatIP (Cosine Similarity)...")
         dimension = embeddings.shape[1]
         index = faiss.IndexFlatIP(dimension)
         index.add(embeddings)
 
+        # Save both raw embeddings (for adapter training) and FAISS index (for retrieval)
         npy_path = f"data/processed/indices/{model_alias}_embeddings.npy"
         faiss_path = f"data/processed/indices/{model_alias}_index.faiss"
 

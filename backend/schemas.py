@@ -63,6 +63,7 @@ class SearchResponse(BaseModel):
     model: str
     count: int
     detected_language: str
+    demo_metrics: dict[str, Any] | None = None
 
 
 class CompareResponse(BaseModel):

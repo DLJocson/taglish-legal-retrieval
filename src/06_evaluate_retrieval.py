@@ -22,13 +22,13 @@ QUERY_FILE = os.path.join(BASE_PATH, "queries_annotated.csv")
 ID_MAPPING_FILE = os.path.join(BASE_PATH, "indices", "id_mapping.json")
 INDICES_DIR = os.path.join(BASE_PATH, "indices")
 
-RUN_MODE = "aligned"  # "baseline" or "aligned"
+RUN_MODE = "aligned"  # "baseline" or "aligned" - set to "baseline" to evaluate without adapters
 
 OUTPUT_CSV = os.path.join(BASE_PATH, f"detailed_evaluation_metrics_{RUN_MODE}.csv")
 SUMMARY_CSV = os.path.join(BASE_PATH, f"summary_evaluation_metrics_{RUN_MODE}.csv")
 
 ALLOWED_LANGUAGES = {"English", "Tagalog", "Code-Switched"}
-TOP_K = 10
+TOP_K = 10  # Evaluate retrieval at top-10 for comprehensive analysis
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -91,6 +91,7 @@ def load_id_lookup(mapping_path):
 
 
 def precision_at_k(retrieved_ids, ground_truth_ids, k):
+    # Precision@K: fraction of retrieved top-K results that are relevant
     if k <= 0:
         return 0.0
     top_k = retrieved_ids[:k]
@@ -99,6 +100,8 @@ def precision_at_k(retrieved_ids, ground_truth_ids, k):
 
 
 def reciprocal_rank(retrieved_ids, ground_truth_ids):
+    # Mean Reciprocal Rank (MRR): inverse of the rank of the first relevant result
+    # Higher MRR indicates relevant documents appear earlier in results
     for rank, doc_id in enumerate(retrieved_ids, start=1):
         if doc_id in ground_truth_ids:
             return 1.0 / rank
@@ -106,6 +109,7 @@ def reciprocal_rank(retrieved_ids, ground_truth_ids):
 
 
 def recall_at_k(retrieved_ids, ground_truth_ids, k):
+    # Recall@K: fraction of all relevant documents retrieved in top-K results
     if not ground_truth_ids:
         return 0.0
     top_k = retrieved_ids[:k]
@@ -182,13 +186,13 @@ def main():
     out_of_scope_df = queries_df[~queries_df["language_label"].isin(ALLOWED_LANGUAGES)].copy()
     judged_in_scope_df = in_scope_df[in_scope_df["relevant_passage_ids"].map(len) > 0].copy()
 
-    # --- NEW: Enforce Test Split for Evaluation ---
+    # Enforce test split to prevent data leakage
+    # Evaluating on training queries would overestimate model performance
     if "split" in judged_in_scope_df.columns:
         judged_in_scope_df = judged_in_scope_df[judged_in_scope_df["split"] == "test"].copy()
         print("\n[SCIENTIFIC VALIDITY CHECK PASSED]: Evaluating strictly on unseen 'test' queries.")
     else:
         print("\n[CRITICAL WARNING]: No 'split' column found. Evaluating on ALL data (Data Leakage!).")
-    # ----------------------------------------------
 
     print(f"Total queries in file: {total_queries}")
     print(f"In-scope queries (English/Tagalog/Code-Switched): {len(in_scope_df)}")
@@ -245,7 +249,7 @@ def main():
                 retrieved_ids = []
                 for faiss_id in faiss_indices[0]:
                     if faiss_id == -1:
-                        continue
+                        continue  # FAISS returns -1 for invalid/empty results
                     try:
                         retrieved_ids.append(str(id_lookup(int(faiss_id))))
                     except Exception as e:
@@ -302,6 +306,8 @@ def main():
     type_perf = metrics_df.groupby(["Model", "Semantic_Type"])[["MRR", "P@5", "P@10", "Recall@10"]].mean().round(4)
     print(type_perf)
 
+    # Build summary table with stratified metrics for analytics dashboard
+    # Three stratification levels: Overall, Language, Semantic Type
     summary_rows = []
 
     for model_name, group in metrics_df.groupby("Model"):

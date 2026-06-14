@@ -16,6 +16,7 @@ def main() -> int:
     failed: list[str] = []
 
     def check(name: str, fn) -> None:
+        # Run a test function and track failures
         try:
             fn()
             print(f"PASS  {name}")
@@ -23,6 +24,7 @@ def main() -> int:
             print(f"FAIL  {name}: {e}")
             failed.append(name)
 
+    # Smoke tests for all API endpoints
     check("GET /api/health", lambda: _health())
     check("GET /api/models", lambda: _models())
     check("GET /api/filters", lambda: _filters())
@@ -43,24 +45,28 @@ def main() -> int:
 
 
 def _health() -> None:
+    # Verify server is running and corpus is loaded
     r = requests.get(f"{BASE}/api/health", timeout=15)
     r.raise_for_status()
     assert r.json()["passage_count"] > 0
 
 
 def _models() -> None:
+    # Verify all expected models are configured
     r = requests.get(f"{BASE}/api/models", timeout=15)
     keys = {m["key"] for m in r.json()["models"]}
     assert keys == {"BGE-M3", "mSBERT", "Legal-BERT"}
 
 
 def _filters() -> None:
+    # Verify filter options are populated from corpus
     r = requests.get(f"{BASE}/api/filters", timeout=15)
     d = r.json()
     assert "All" in d["languages"] and len(d["document_types"]) > 1
 
 
 def _search(model: str) -> None:
+    # Verify search returns correct number of results with metadata
     r = requests.post(
         f"{BASE}/api/search",
         json={"query": QUERY, "model": model, "top_k": 3},
@@ -72,6 +78,7 @@ def _search(model: str) -> None:
 
 
 def _compare() -> None:
+    # Verify comparison endpoint returns results for both models
     r = requests.post(
         f"{BASE}/api/compare",
         json={"query": "bail", "model_a": "BGE-M3", "model_b": "mSBERT", "top_k": 2},
@@ -83,6 +90,7 @@ def _compare() -> None:
 
 
 def _compare_reject() -> None:
+    # Verify comparison rejects identical model+adapter state (meaningless comparison)
     r = requests.post(
         f"{BASE}/api/compare",
         json={"query": "bail", "model_a": "BGE-M3", "model_b": "BGE-M3", "top_k": 2},
@@ -92,6 +100,7 @@ def _compare_reject() -> None:
 
 
 def _search_filtered() -> None:
+    # Verify language filter correctly excludes non-English results
     r = requests.post(
         f"{BASE}/api/search",
         json={"query": "school", "model": "BGE-M3", "top_k": 5, "language": "English"},
@@ -103,6 +112,7 @@ def _search_filtered() -> None:
 
 
 def _analytics() -> None:
+    # Verify analytics endpoint returns structured metrics data
     r = requests.get(f"{BASE}/api/analytics/metrics", timeout=30)
     r.raise_for_status()
     d = r.json()
@@ -110,6 +120,8 @@ def _analytics() -> None:
 
 
 def _analytics_accuracy() -> None:
+    # Verify API metrics match manually calculated CSV values
+    # Ensures backend aggregation logic is correct
     from pathlib import Path
 
     csv = Path(__file__).resolve().parent.parent / "data/processed/detailed_evaluation_metrics.csv"

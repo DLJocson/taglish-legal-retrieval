@@ -4,6 +4,8 @@
 const LegalTechAnalytics = (() => {
   const { $, escapeHtml, truncate, apiGet } = LegalTech;
 
+  // Consistent color mapping for models across all charts
+  // Handles multiple naming conventions (e.g., BGE-M3 vs BGE_M3)
   const MODEL_COLORS = {
     BGE_M3: "#1D9E75",
     "BGE-M3": "#1D9E75",
@@ -29,6 +31,9 @@ const LegalTechAnalytics = (() => {
     return { model: String(best[modelCol]), value: Number(best[metricCol] ?? 0) };
   }
 
+  // Render CSS-based bar charts without external charting libraries
+  // Supports grouped charts (by category) and simple single-group charts
+  // Bars animate in from left with staggered timing
   function renderBarChart(containerId, rows, modelCol, metricCol, categoryCol = null) {
     const el = $(containerId);
     if (!el || !metricCol || !rows?.length) {
@@ -41,7 +46,7 @@ const LegalTechAnalytics = (() => {
       const categories = [...new Set(rows.map(r => r[categoryCol]))];
       el.innerHTML = categories.map((cat, index) => {
         const catRows = rows.filter(r => r[categoryCol] === cat);
-        // Use category-specific max for proper scaling
+        // Use category-specific max for proper scaling within each group
         const catMax = Math.max(...catRows.map((r) => Number(r[metricCol] ?? 0)), 0.0001);
         const divider = index < categories.length - 1 ? '<hr style="border:0;border-top:1px solid var(--an-bdr);margin:0.75rem 0 0.5rem;">' : '';
         return `
@@ -73,7 +78,7 @@ const LegalTechAnalytics = (() => {
 
     const max = Math.max(...rows.map((r) => Number(r[metricCol] ?? 0)), 0.0001);
 
-    // Defensive handling for single-item categories
+    // Defensive handling for single-item categories to show context
     const isSingleItem = rows.length === 1;
 
     el.innerHTML = rows
@@ -82,7 +87,7 @@ const LegalTechAnalytics = (() => {
         const m = String(r[modelCol]);
         const c = colorFor(m, i);
 
-        // Check for perfect MRR (1.0000) for highlighting
+        // Highlight perfect MRR scores (1.0000) with special styling
         const isPerfectMRR = metricCol && metricCol.toLowerCase().includes('mrr') && v >= 0.9999;
         const cardClass = isPerfectMRR ? 'perfect-mrr' : '';
         const widthPercent = v === 0 ? 3 : ((v / max) * 100).toFixed(1);
@@ -100,6 +105,8 @@ const LegalTechAnalytics = (() => {
       .join("");
   }
 
+  // Animate numeric values with ease-out cubic easing for smooth transitions
+  // Stores final value in data-prev attribute for subsequent animations
   function animateCountUp(element, startValue, endValue, duration = 800, deltaHtml = '') {
     const startTime = performance.now();
     const start = startValue;
@@ -109,7 +116,7 @@ const LegalTechAnalytics = (() => {
     function update(currentTime) {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
+      // Ease out cubic for natural deceleration
       const easeProgress = 1 - Math.pow(1 - progress, 3);
       const current = start + (range * easeProgress);
       element.innerHTML = current.toFixed(4) + deltaHtml;
@@ -145,7 +152,7 @@ const LegalTechAnalytics = (() => {
       const b = bestModel(selectedGlobal, modelCol, m.key);
       winners.push(b.model);
 
-      // Find delta for this model and metric
+      // Calculate delta (aligned - baseline) to show LINAW improvement
       const deltaRow = deltas.find((d) => d[modelCol] === b.model);
       const deltaKey = `${m.key}_delta`;
       const deltaValue = deltaRow ? deltaRow[deltaKey] : 0;
@@ -240,16 +247,16 @@ const LegalTechAnalytics = (() => {
   async function renderDashboardWithView(viewMode) {
     if (!currentData) return;
 
-    // Add fade+slide animation
+    // Add fade+slide animation for smooth view transitions
     const content = $("analytics-content");
     if (content) {
       content.classList.remove("view-transition");
-      // Trigger reflow to restart animation
+      // Trigger reflow to restart CSS animation
       void content.offsetWidth;
       content.classList.add("view-transition");
     }
 
-    // Small delay for visual feedback
+    // Small delay for visual feedback during transition
     await new Promise(resolve => setTimeout(resolve, 150));
 
     currentView = viewMode;
@@ -334,6 +341,8 @@ const LegalTechAnalytics = (() => {
     }
   }
 
+  // Animate sections into view as user scrolls
+  // Uses IntersectionObserver for performance-efficient scroll detection
   function initScrollObserver() {
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
@@ -342,8 +351,8 @@ const LegalTechAnalytics = (() => {
         }
       });
     }, {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
+      threshold: 0.1,  // Trigger when 10% of section is visible
+      rootMargin: '0px 0px -50px 0px'  // Offset bottom to trigger slightly before section reaches viewport edge
     });
 
     const sections = document.querySelectorAll('.an-section');

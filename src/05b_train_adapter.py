@@ -25,13 +25,14 @@ MODELS_TO_TRAIN = {
     "legal_bert": "nlpaueb/legal-bert-base-uncased",
 }
 
+# Training configuration
 ALLOWED_LANGUAGES = {"English", "Tagalog", "Code-Switched"}
-TRIPLET_MARGIN = 0.3
-LEARNING_RATE = 2e-4
-EPOCHS = 50
-TOP_K = 10
-MIN_TRIPLETS = 10
-WEIGHT_DECAY = 1e-3
+TRIPLET_MARGIN = 0.3  # Margin for triplet loss: larger margin forces better separation
+LEARNING_RATE = 2e-4  # Conservative LR to avoid overfitting on small dataset
+EPOCHS = 50  # Sufficient epochs for convergence with early stopping via best checkpoint
+TOP_K = 10  # Retrieve top-10 for hard negative mining
+MIN_TRIPLETS = 10  # Minimum triplets required to attempt training
+WEIGHT_DECAY = 1e-3  # L2 regularization to prevent overfitting
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -91,12 +92,15 @@ def load_passage_ids(path):
 
 
 class LinearAdapter(nn.Module):
+    # Neural adapter for aligning query and passage embeddings (LINAW)
+    # Initialized as identity transformation (eye_) to start close to baseline
+    # LayerNorm + ReLU provides non-linearity while preserving dimensionality
     def __init__(self, dim):
         super().__init__()
         self.proj = nn.Linear(dim, dim, bias=True)
         self.norm = nn.LayerNorm(dim)
         self.act = nn.ReLU()
-        nn.init.eye_(self.proj.weight)
+        nn.init.eye_(self.proj.weight)  # Initialize as identity for stable training start
         nn.init.zeros_(self.proj.bias)
 
     def forward(self, x):
@@ -142,7 +146,8 @@ def build_triplets(queries_df, passage_index, passage_ids, passage_embeddings, q
 
         q_vec = query_vec[0]
         
-        # FIXED: Iterate through ALL combinations of positives and negatives
+        # Generate all positive-negative combinations for comprehensive training signal
+        # This creates more triplets than random sampling, improving adapter convergence
         for pos_id in positives:
             pos_vec = passage_embeddings[passage_index[pos_id]]
             for neg_id in negatives:
@@ -158,7 +163,9 @@ def build_triplets(queries_df, passage_index, passage_ids, passage_embeddings, q
 def train_adapter(triplets, dim, alias):
     adapter = LinearAdapter(dim).to(DEVICE)
     
-    # FIXED: Use Cosine Distance to strictly match the thesis formula
+    # Use cosine distance (1 - cosine_similarity) as triplet loss distance metric
+    # This matches the retrieval similarity metric (IndexFlatIP uses inner product on normalized vectors)
+    # Ensures adapter optimizes for the same similarity used during inference
     cosine_distance = lambda x, y: 1.0 - nn.functional.cosine_similarity(x, y, dim=-1)
     criterion = nn.TripletMarginWithDistanceLoss(
         distance_function=cosine_distance, 
@@ -225,7 +232,8 @@ def main():
     queries_df["language_label"] = queries_df["language_label"].astype(str).str.strip()
     queries_df["relevant_passage_ids"] = queries_df["relevant_passage_ids"].apply(parse_list_value)
 
-    # FIXED: Added a check for train/test split to prevent data leakage
+    # Filter to training split only to prevent data leakage
+    # Training on test queries would invalidate evaluation metrics
     if "split" in queries_df.columns:
         in_scope_df = queries_df[
             queries_df["language_label"].isin(ALLOWED_LANGUAGES)
@@ -272,6 +280,9 @@ def main():
         print(f"  Loading sentence encoder: {model_path}")
         encoder = SentenceTransformer(model_path, device="cpu")
 
+        # Mine hard negatives from top-K retrieved passages
+        # Hard negatives are passages retrieved by the model but not marked as relevant
+        # Training on these improves the model's ability to distinguish similar but incorrect passages
         print(f"  Mining hard negatives from top-{TOP_K} retrieved passages...")
         triplets = build_triplets(
             queries_df=in_scope_df,
@@ -310,6 +321,7 @@ def main():
     print("\n========================================")
     print("  MODULE 2.5 COMPLETE                   ")
     print("  Next: apply adapter to queries only   ")
+    print("  (passages remain unchanged; adapter shifts query space)")
     print("========================================")
 
 
